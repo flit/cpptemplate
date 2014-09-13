@@ -187,14 +187,43 @@ namespace cpptempl
 			return make_data(boost::trim_copy_if(key, boost::is_any_of("\""))) ;
 		}
 
+        // handle functions
+        std::string fn;
+        size_t index = key.find("(");
+        if (index != std::string::npos)
+        {
+            // Make sure there is a closing parenthesis at the end.
+            if (key[key.size()-1] != ')')
+            {
+                throw TemplateException("Missing close parenthesis");
+            }
+
+            fn = key.substr(0, index);
+            key = key.substr(index + 1, key.size() - index - 2);
+        }
+
+        // parse path and get resulting data object
+        data_ptr result;
         try
         {
-            return data.parse_path(key);
+            result = data.parse_path(key);
         }
         catch (data_map::key_error & e)
         {
             return make_data("{$" + key + "}") ;
         }
+
+        // evaluate function
+        if (fn == "empty")
+        {
+            result = result->getlist().empty();
+        }
+        else if (fn == "count")
+        {
+            result = result->getlist().size();
+        }
+
+        return result;
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -549,7 +578,7 @@ namespace cpptempl
 				pos = text.find("}") ;
 				if (pos != std::string::npos)
 				{
-                    pre_text = text.substr(1, pos-1);
+                    pre_text = boost::trim_copy(text.substr(1, pos-1));
 					tokens.push_back(token_ptr (new TokenVar(pre_text, currentLine))) ;
 					text = text.substr(pos+1) ;
 				}
