@@ -249,7 +249,14 @@ namespace cpptempl
 		{
 			return lhs->getvalue() == rhs->getvalue() ;
 		}
-		return lhs->getvalue() != rhs->getvalue() ;
+        else if (elements[2] == "!=")
+        {
+            return lhs->getvalue() != rhs->getvalue() ;
+        }
+        else
+        {
+            throw TemplateException("Unknown/unsupported operator in if statement");
+        }
 	}
 
 	void TokenIf::set_children( token_vector &children )
@@ -319,6 +326,8 @@ namespace cpptempl
 	//////////////////////////////////////////////////////////////////////////
 	token_vector & tokenize(std::string text, token_vector &tokens)
 	{
+        bool eolPrecedes = true;
+        bool lastWasEol = true;
 		while(! text.empty())
 		{
 			size_t pos = text.find("{") ;
@@ -335,6 +344,15 @@ namespace cpptempl
 			{
 				tokens.push_back(token_ptr(new TokenText(pre_text))) ;
 			}
+
+            // Track whether there was an EOL prior to this open brace.
+            bool newLastWasEol = pos > 0 && text[pos-1] == '\n';
+            eolPrecedes = (pos == 0 && lastWasEol) || newLastWasEol;
+            if (pos > 0)
+            {
+                lastWasEol = newLastWasEol;
+            }
+
 			text = text.substr(pos+1) ;
 			if (text.empty())
 			{
@@ -351,6 +369,8 @@ namespace cpptempl
 					tokens.push_back(token_ptr (new TokenVar(text.substr(1, pos-1)))) ;
 					text = text.substr(pos+1) ;
 				}
+
+                lastWasEol = false;
 			}
 			// control statement
 			else if (text[0] == '%')
@@ -359,7 +379,19 @@ namespace cpptempl
 				if (pos != std::string::npos)
 				{
                     std::string expression = boost::trim_copy(text.substr(1, pos-2)) ;
-					text = text.substr(pos+1) ;
+
+                    bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n';
+
+                    // Chop off following eol if this control statement is on a line by itself.
+                    if (eolPrecedes && eolFollows)
+                    {
+                        text = text.substr(pos+2) ;
+                        lastWasEol = true;
+                    }
+                    else
+                    {
+                        text = text.substr(pos+1) ;
+                    }
 					if (boost::starts_with(expression, "for"))
 					{
 						tokens.push_back(token_ptr (new TokenFor(expression))) ;

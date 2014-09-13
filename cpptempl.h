@@ -227,10 +227,10 @@ namespace cpptempl
 	// for block
 	class TokenFor : public Token 
 	{
-	public:
         std::string m_key ;
         std::string m_val ;
 		token_vector m_children ;
+	public:
 		TokenFor(std::string expr);
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
@@ -241,9 +241,9 @@ namespace cpptempl
 	// if block
 	class TokenIf : public Token
 	{
-	public:
         std::string m_expr ;
 		token_vector m_children ;
+	public:
 		TokenIf(std::string expr) : m_expr(expr){}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
