@@ -17,6 +17,7 @@ namespace cpptempl
 	// Data classes
 	//////////////////////////////////////////////////////////////////////////
 
+    data_ptr::data_ptr(DataBool* data) : ptr(data) {}
     data_ptr::data_ptr(DataValue* data) : ptr(data) {}
     data_ptr::data_ptr(DataList* data) : ptr(data) {}
     data_ptr::data_ptr(DataMap* data) : ptr(data) {}
@@ -39,6 +40,11 @@ namespace cpptempl
 	}
 
 	template<>
+	void data_ptr::operator = (const bool& data) {
+		ptr.reset(new DataBool(data));
+	}
+
+	template<>
 	void data_ptr::operator = (const std::string& data) {
 		ptr.reset(new DataValue(data));
 	}
@@ -54,11 +60,11 @@ namespace cpptempl
 	}
 
 	void data_ptr::push_back(const data_ptr& data) {
-		if (!ptr) {
-			ptr.reset(new DataList(data_list()));
-		}
-		data_list& list = ptr->getlist();
-		list.push_back(data);
+        if (!ptr) {
+            ptr.reset(new DataList(data_list()));
+        }
+        data_list& list = ptr->getlist();
+        list.push_back(data);
 	}
 
 	// base data
@@ -74,6 +80,15 @@ namespace cpptempl
 	data_map& Data::getmap()
 	{
 		throw TemplateException("Data item is not a dictionary") ;
+	}
+    // data bool
+    std::string DataBool::getvalue()
+	{
+		return m_value ? "true" : "false" ;
+	}
+	bool DataBool::empty()
+	{
+		return !m_value;
 	}
 	// data value
     std::string DataValue::getvalue()

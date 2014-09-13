@@ -73,6 +73,15 @@ namespace cpptempl
 		virtual data_map& getmap() ;
 	};
 
+    class DataBool : public Data
+    {
+        bool m_value;
+    public:
+        DataBool(bool value) : m_value(value) {}
+        std::string getvalue();
+        bool empty();
+    };
+
 	class DataValue : public Data
 	{
         std::string m_value ;
@@ -97,6 +106,7 @@ namespace cpptempl
 		template<typename T> data_ptr(const T& data) {
 			this->operator =(data);
 		}
+        data_ptr(DataBool* data);
 		data_ptr(DataValue* data);
         data_ptr(DataList* data);
         data_ptr(DataMap* data);
@@ -139,6 +149,7 @@ namespace cpptempl
 	};
 
 	template<> inline void data_ptr::operator = (const data_ptr& data);
+	template<> void data_ptr::operator = (const bool& data);
 	template<> void data_ptr::operator = (const std::string& data);
 	template<> void data_ptr::operator = (const data_map& data);
 	template<> void data_ptr::operator = (const data_list& data);
@@ -161,6 +172,10 @@ namespace cpptempl
 	};
 
 	// convenience functions for making data objects
+	inline data_ptr make_data(bool val)
+	{
+		return data_ptr(new DataBool(val)) ;
+	}
 	inline data_ptr make_data(std::string val)
 	{
 		return data_ptr(new DataValue(val)) ;
