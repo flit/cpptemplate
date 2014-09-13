@@ -5,13 +5,15 @@
 #include "cpptempl.h"
 
 #include <sstream>
+#include <algorithm>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
 namespace cpptempl
 {
 
-    std::string strip_comment(std::string text);
+    std::string strip_comment(const std::string & text);
+    inline size_t count_newlines(const std::string & text);
 
 	//////////////////////////////////////////////////////////////////////////
 	// Data classes
@@ -177,12 +179,12 @@ namespace cpptempl
 	// defaults, overridden by subclasses with children
 	void Token::set_children( token_vector & )
 	{
-		throw TemplateException("This token type cannot have children") ;
+		throw TemplateException(get_line(), "This token type cannot have children") ;
 	}
 
 	token_vector & Token::get_children()
 	{
-		throw TemplateException("This token type cannot have children") ;
+		throw TemplateException(get_line(), "This token type cannot have children") ;
 	}
 
 	// TokenText
@@ -204,7 +206,15 @@ namespace cpptempl
 
 	void TokenVar::gettext( std::ostream &stream, data_map &data )
 	{
-		stream << parse_val(m_key, data)->getvalue() ;
+        try
+        {
+            stream << parse_val(m_key, data)->getvalue() ;
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(get_line());
+            throw e;
+        }
 	}
 
 	// TokenVar
@@ -219,14 +229,14 @@ namespace cpptempl
 	}
 
 	// TokenFor
-	TokenFor::TokenFor(std::string expr)
-    :   TokenParent()
+	TokenFor::TokenFor(std::string expr, uint32_t line)
+    :   TokenParent(line)
 	{
 		std::vector<std::string> elements ;
 		boost::split(elements, expr, boost::is_space()) ;
 		if (elements.size() != 4u)
 		{
-			throw TemplateException("Invalid syntax in for statement") ;
+			throw TemplateException(get_line(), "Invalid syntax in for statement") ;
 		}
 		m_val = elements[1] ;
 		m_key = elements[3] ;
@@ -239,20 +249,28 @@ namespace cpptempl
 
 	void TokenFor::gettext( std::ostream &stream, data_map &data )
 	{
-		data_ptr value = parse_val(m_key, data) ;
-		data_list &items = value->getlist() ;
-		for (size_t i = 0 ; i < items.size() ; ++i)
-		{
-			data_map loop ;
-			loop["index"] = make_data(boost::lexical_cast<std::string>(i+1)) ;
-			loop["index0"] = make_data(boost::lexical_cast<std::string>(i)) ;
-			data["loop"] = make_data(loop);
-			data[m_val] = items[i] ;
-			for(size_t j = 0 ; j < m_children.size() ; ++j)
-			{
-				m_children[j]->gettext(stream, data) ;
-			}
-		}
+        try
+        {
+            data_ptr value = parse_val(m_key, data) ;
+            data_list &items = value->getlist() ;
+            for (size_t i = 0 ; i < items.size() ; ++i)
+            {
+                data_map loop ;
+                loop["index"] = make_data(boost::lexical_cast<std::string>(i+1)) ;
+                loop["index0"] = make_data(boost::lexical_cast<std::string>(i)) ;
+                data["loop"] = make_data(loop);
+                data[m_val] = items[i] ;
+                for(size_t j = 0 ; j < m_children.size() ; ++j)
+                {
+                    m_children[j]->gettext(stream, data) ;
+                }
+            }
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(get_line());
+            throw e;
+        }
 	}
 
 	// TokenIf
@@ -285,31 +303,41 @@ namespace cpptempl
 		{
 			return ! parse_val(elements[1], data)->empty() ;
 		}
-		data_ptr lhs = parse_val(elements[1], data) ;
-		data_ptr rhs = parse_val(elements[3], data) ;
+        std::string lhs;
+        std::string rhs;
+        try
+        {
+            lhs = parse_val(elements[1], data)->getvalue() ;
+            rhs = parse_val(elements[3], data)->getvalue() ;
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(get_line());
+            throw e;
+        }
 		if (elements[2] == "==")
 		{
-			return lhs->getvalue() == rhs->getvalue() ;
+			return lhs == rhs ;
 		}
         else if (elements[2] == "!=")
         {
-            return lhs->getvalue() != rhs->getvalue() ;
+            return lhs != rhs ;
         }
         else
         {
-            throw TemplateException("Unknown/unsupported operator in if statement");
+            throw TemplateException(get_line(), "Unknown/unsupported operator in if statement");
         }
 	}
 
 	// TokenDef
-    TokenDef::TokenDef(std::string name)
-    :   TokenParent()
+    TokenDef::TokenDef(std::string name, uint32_t line)
+    :   TokenParent(line)
     {
 		std::vector<std::string> elements ;
 		boost::split(elements, name, boost::is_space()) ;
 		if (elements.size() != 2u)
 		{
-			throw TemplateException("Invalid syntax in def statement") ;
+			throw TemplateException(get_line(), "Invalid syntax in def statement") ;
 		}
 		m_name = elements[1] ;
     }
@@ -340,7 +368,8 @@ namespace cpptempl
 	}
 
 	// TokenEnd
-    TokenEnd::TokenEnd(std::string text)
+    TokenEnd::TokenEnd(std::string text, uint32_t line)
+    :   Token(line)
     {
 		if (boost::starts_with(text, "endfor"))
         {
@@ -356,14 +385,31 @@ namespace cpptempl
         }
         else
         {
-            throw TemplateException("Unknown end of control statement");
+            throw TemplateException(get_line(), "Unknown end of control statement");
         }
 	}
 
 	void TokenEnd::gettext( std::ostream &, data_map &)
 	{
-		throw TemplateException("End-of-control statements have no associated text") ;
+		throw TemplateException(get_line(), "End-of-control statements have no associated text") ;
 	}
+
+    TemplateException::TemplateException(size_t line, std::string reason)
+    :   std::exception(),
+        m_line(0),
+        m_reason()
+    {
+        set_line_if_missing(line);
+    }
+
+    void TemplateException::set_line_if_missing(size_t line)
+    {
+        if (!m_line)
+        {
+            m_line = line;
+            m_reason = std::string("Line ") + boost::lexical_cast<std::string>(line) + ": " + m_reason;
+        }
+    }
 
 	// gettext
 	// generic helper for getting text from tokens.
@@ -412,7 +458,7 @@ namespace cpptempl
 		}
 	}
 
-    std::string strip_comment(std::string text)
+    std::string strip_comment(const std::string & text)
     {
         size_t pos = text.find("--");
         if (pos == std::string::npos)
@@ -423,6 +469,11 @@ namespace cpptempl
         return boost::trim_copy(text.substr(0, pos));
     }
 
+    inline size_t count_newlines(const std::string & text)
+    {
+        return std::count(text.begin(), text.end(), '\n');
+    }
+
 	//////////////////////////////////////////////////////////////////////////
 	// tokenize
 	// parses a template into tokens (text, for, if, variable)
@@ -431,6 +482,7 @@ namespace cpptempl
 	{
         bool eolPrecedes = true;
         bool lastWasEol = true;
+        uint32_t currentLine = 1;
 		while(! text.empty())
 		{
 			size_t pos = text.find("{") ;
@@ -438,14 +490,15 @@ namespace cpptempl
 			{
 				if (! text.empty())
 				{
-					tokens.push_back(token_ptr(new TokenText(text))) ;
+					tokens.push_back(token_ptr(new TokenText(text, currentLine))) ;
 				}
 				return tokens ;
 			}
             std::string pre_text = text.substr(0, pos) ;
+            currentLine += count_newlines(pre_text) ;
 			if (! pre_text.empty())
 			{
-				tokens.push_back(token_ptr(new TokenText(pre_text))) ;
+				tokens.push_back(token_ptr(new TokenText(pre_text, currentLine))) ;
 			}
 
             // Track whether there was an EOL prior to this open brace.
@@ -459,7 +512,7 @@ namespace cpptempl
 			text = text.substr(pos+1) ;
 			if (text.empty())
 			{
-				tokens.push_back(token_ptr(new TokenText("{"))) ;
+				tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
 				return tokens ;
 			}
 
@@ -469,11 +522,12 @@ namespace cpptempl
 				pos = text.find("}") ;
 				if (pos != std::string::npos)
 				{
-					tokens.push_back(token_ptr (new TokenVar(text.substr(1, pos-1)))) ;
+                    pre_text = text.substr(1, pos-1);
+					tokens.push_back(token_ptr (new TokenVar(pre_text, currentLine))) ;
 					text = text.substr(pos+1) ;
 				}
 
-                lastWasEol = false;
+                lastWasEol = false ;
 			}
 			// control statement
 			else if (text[0] == '%')
@@ -481,42 +535,59 @@ namespace cpptempl
 				pos = text.find("}") ;
 				if (pos != std::string::npos)
 				{
-                    std::string expression = strip_comment(text.substr(1, pos-2)) ;
+                    pre_text = text.substr(1, pos-2) ;
+                    currentLine += count_newlines(pre_text) ;
+                    std::string expression = strip_comment(pre_text) ;
 
-                    bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n';
+                    bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n' ;
 
                     // Chop off following eol if this control statement is on a line by itself.
                     if (eolPrecedes && eolFollows)
                     {
                         text = text.substr(pos+2) ;
-                        lastWasEol = true;
+                        lastWasEol = true ;
                     }
                     else
                     {
                         text = text.substr(pos+1) ;
                     }
 
+                    // Create control statement tokens.
 					if (boost::starts_with(expression, "for "))
 					{
-						tokens.push_back(token_ptr (new TokenFor(expression))) ;
+						tokens.push_back(token_ptr (new TokenFor(expression, currentLine))) ;
 					}
 					else if (boost::starts_with(expression, "if "))
 					{
-						tokens.push_back(token_ptr (new TokenIf(expression))) ;
+						tokens.push_back(token_ptr (new TokenIf(expression, currentLine))) ;
 					}
 					else if (boost::starts_with(expression, "def "))
 					{
-						tokens.push_back(token_ptr (new TokenDef(expression))) ;
+						tokens.push_back(token_ptr (new TokenDef(expression, currentLine))) ;
 					}
-					else
+					else if (boost::starts_with(expression, "end"))
 					{
-						tokens.push_back(token_ptr (new TokenEnd(boost::trim_copy(expression)))) ;
+						tokens.push_back(token_ptr (new TokenEnd(boost::trim_copy(expression), currentLine))) ;
 					}
+                    else
+                    {
+                        throw TemplateException(currentLine, "Unrecognized control statement");
+                    }
+
+                    // Increment current line to account for the newline we just chopped off.
+                    if (eolPrecedes && eolFollows)
+                    {
+                        ++currentLine;
+                    }
 				}
+                else
+                {
+                    tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
+                }
 			}
 			else
 			{
-				tokens.push_back(token_ptr(new TokenText("{"))) ;
+				tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
 			}
 		}
 		return tokens ;

@@ -165,10 +165,21 @@ namespace cpptempl
 	typedef std::vector<token_ptr> token_vector ;
 
 	// Custom exception class for library errors
-	class TemplateException : public std::runtime_error
+	class TemplateException : public std::exception
 	{
+        uint32_t m_line;
+        std::string m_reason;
 	public:
-		TemplateException(std::string reason) : std::runtime_error(reason) {}
+		TemplateException(std::string reason) : std::exception(), m_line(0), m_reason(reason) {}
+        TemplateException(size_t line, std::string reason);
+        TemplateException(const TemplateException & other)=default;
+        TemplateException& operator=(const TemplateException & other)=default;
+        virtual ~TemplateException()=default;
+
+        void set_reason(std::string reason) { m_reason = reason; }
+        void set_line_if_missing(size_t line);
+
+        virtual const char* what() const noexcept { return m_reason.c_str(); }
 	};
 
 	// convenience functions for making data objects
@@ -215,11 +226,15 @@ namespace cpptempl
 	// base class for all token types
 	class Token
 	{
+        uint32_t m_line;
 	public:
+        Token(uint32_t line) : m_line(line) {}
 		virtual TokenType gettype() = 0 ;
 		virtual void gettext(std::ostream &stream, data_map &data) = 0 ;
 		virtual void set_children(token_vector &children);
 		virtual token_vector & get_children();
+        uint32_t get_line() { return m_line; }
+        void set_line(uint32_t line) { m_line = line; }
 	};
 
 	// token with children
@@ -228,6 +243,7 @@ namespace cpptempl
     protected:
 		token_vector m_children ;
 	public:
+        TokenParent(uint32_t line) : Token(line) {}
 		void set_children(token_vector &children);
 		token_vector &get_children();
 	};
@@ -237,7 +253,7 @@ namespace cpptempl
 	{
         std::string m_text ;
 	public:
-		TokenText(std::string text) : m_text(text){}
+		TokenText(std::string text, uint32_t line=0) : Token(line), m_text(text){}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
@@ -247,7 +263,7 @@ namespace cpptempl
 	{
         std::string m_key ;
 	public:
-		TokenVar(std::string key) : m_key(key){}
+		TokenVar(std::string key, uint32_t line=0) : Token(line), m_key(key){}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
@@ -258,7 +274,7 @@ namespace cpptempl
         std::string m_key ;
         std::string m_val ;
 	public:
-		TokenFor(std::string expr);
+		TokenFor(std::string expr, uint32_t line=0);
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
@@ -268,7 +284,7 @@ namespace cpptempl
 	{
         std::string m_expr ;
 	public:
-		TokenIf(std::string expr) : TokenParent(), m_expr(expr){}
+		TokenIf(std::string expr, uint32_t line=0) : TokenParent(line), m_expr(expr){}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 		bool is_true(std::string expr, data_map &data);
@@ -279,7 +295,7 @@ namespace cpptempl
     {
         std::string m_name;
 	public:
-        TokenDef(std::string name);
+        TokenDef(std::string name, uint32_t line=0);
         TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
     };
@@ -289,7 +305,7 @@ namespace cpptempl
 	{
         TokenType m_type ;
 	public:
-		TokenEnd(std::string text);
+		TokenEnd(std::string text, uint32_t line=0);
 		TokenType gettype() { return m_type; }
 		void gettext(std::ostream &stream, data_map &data);
 	};
