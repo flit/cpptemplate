@@ -12,8 +12,17 @@
 namespace cpptempl
 {
 
+namespace impl
+{
+
+	// get a data value from a data map
+	// e.g. foo.bar => data["foo"]["bar"]
+	data_ptr parse_val(std::string key, data_map &data) ;
+
     std::string strip_comment(const std::string & text);
     inline size_t count_newlines(const std::string & text);
+
+}
 
 	//////////////////////////////////////////////////////////////////////////
 	// Data classes
@@ -145,6 +154,24 @@ namespace cpptempl
 	{
 		return m_items.empty();
 	}
+
+    TemplateException::TemplateException(size_t line, std::string reason)
+    :   std::exception(),
+        m_line(0),
+        m_reason()
+    {
+        set_line_if_missing(line);
+    }
+
+    void TemplateException::set_line_if_missing(size_t line)
+    {
+        if (!m_line)
+        {
+            m_line = line;
+            m_reason = std::string("Line ") + boost::lexical_cast<std::string>(line) + ": " + m_reason;
+        }
+    }
+
 	//////////////////////////////////////////////////////////////////////////
 	// parse_val
 	//////////////////////////////////////////////////////////////////////////
@@ -178,6 +205,9 @@ namespace cpptempl
 
 		return data[sub_key]->getmap().parse_path(key.substr(index+1), create) ;
 	}
+
+namespace impl
+{
 
 	data_ptr parse_val(std::string key, data_map &data)
 	{
@@ -450,23 +480,6 @@ namespace cpptempl
 		throw TemplateException(get_line(), "End-of-control statements have no associated text") ;
 	}
 
-    TemplateException::TemplateException(size_t line, std::string reason)
-    :   std::exception(),
-        m_line(0),
-        m_reason()
-    {
-        set_line_if_missing(line);
-    }
-
-    void TemplateException::set_line_if_missing(size_t line)
-    {
-        if (!m_line)
-        {
-            m_line = line;
-            m_reason = std::string("Line ") + boost::lexical_cast<std::string>(line) + ": " + m_reason;
-        }
-    }
-
 	// gettext
 	// generic helper for getting text from tokens.
 
@@ -649,6 +662,8 @@ namespace cpptempl
 		return tokens ;
 	}
 
+} // namespace impl
+
 	/************************************************************************
 	* parse
 	*
@@ -665,10 +680,10 @@ namespace cpptempl
 	}
 	void parse(std::ostream &stream, std::string templ_text, data_map &data)
 	{
-		token_vector tokens ;
-		tokenize(templ_text, tokens) ;
-		token_vector tree ;
-		parse_tree(tokens, tree) ;
+		impl::token_vector tokens ;
+		impl::tokenize(templ_text, tokens) ;
+		impl::token_vector tree ;
+		impl::parse_tree(tokens, tree) ;
 
 		for (size_t i = 0 ; i < tree.size() ; ++i)
 		{

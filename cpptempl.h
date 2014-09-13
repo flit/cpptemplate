@@ -45,7 +45,7 @@ Example:
 
 #include <string>
 #include <vector>
-#include <map>							
+#include <map>
 #include <memory>
 #include <unordered_map>
 #include <boost/lexical_cast.hpp>
@@ -133,7 +133,7 @@ namespace cpptempl
         public:
             key_error(const std::string & msg) : std::runtime_error(msg) {}
         };
-        
+
 		data_ptr& operator [](const std::string& key);
 		bool empty();
 		bool has(const std::string& key);
@@ -171,11 +171,6 @@ namespace cpptempl
 	void data_ptr::operator = (const T&& data) {
 		this->operator =(boost::lexical_cast<std::string>(data));
 	}
-
-	// token classes
-	class Token ;
-	typedef std::shared_ptr<Token> token_ptr ;
-	typedef std::vector<token_ptr> token_vector ;
 
 	// Custom exception class for library errors
 	class TemplateException : public std::exception
@@ -230,11 +225,14 @@ namespace cpptempl
         return data_ptr(boost::lexical_cast<std::string>(val));
     }
 
-	// get a data value from a data map
-	// e.g. foo.bar => data["foo"]["bar"]
-	data_ptr parse_val(std::string key, data_map &data) ;
+namespace impl {
 
-	typedef enum 
+	// token classes
+	class Token ;
+	typedef std::shared_ptr<Token> token_ptr ;
+	typedef std::vector<token_ptr> token_vector ;
+
+	typedef enum
 	{
 		TOKEN_TYPE_NONE,
 		TOKEN_TYPE_TEXT,
@@ -340,7 +338,9 @@ namespace cpptempl
 	void parse_tree(token_vector &tokens, token_vector &tree, TokenType until=TOKEN_TYPE_NONE) ;
 	token_vector & tokenize(std::string text, token_vector &tokens) ;
 
-	// The big daddy. Pass in the template and data, 
+} // namespace impl
+
+	// The big daddy. Pass in the template and data,
 	// and get out a completed doc.
 	void parse(std::ostream &stream, std::string templ_text, data_map &data) ;
     std::string parse(std::string templ_text, data_map &data);
