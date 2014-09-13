@@ -281,8 +281,10 @@ namespace cpptempl
             for (size_t i = 0 ; i < items.size() ; ++i)
             {
                 data_map loop ;
-                loop["index"] = make_data(boost::lexical_cast<std::string>(i+1)) ;
-                loop["index0"] = make_data(boost::lexical_cast<std::string>(i)) ;
+                loop["index"] = make_data(i+1) ;
+                loop["index0"] = make_data(i) ;
+                loop["last"] = make_data(i == items.size() - 1);
+                loop["count"] = make_data(items.size());
                 data["loop"] = make_data(loop);
                 data[m_val] = items[i] ;
                 for(size_t j = 0 ; j < m_children.size() ; ++j)
