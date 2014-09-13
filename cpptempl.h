@@ -115,9 +115,16 @@ namespace cpptempl
 
 	class data_map {
 	public:
+        class key_error : public std::runtime_error
+        {
+        public:
+            key_error(const std::string & msg) : std::runtime_error(msg) {}
+        };
+        
 		data_ptr& operator [](const std::string& key);
 		bool empty();
 		bool has(const std::string& key);
+        data_ptr& parse_path(const std::string& key, bool create=false);
 	private:
 		std::unordered_map<std::string, data_ptr> data;
 	};
@@ -147,16 +154,10 @@ namespace cpptempl
 	typedef std::vector<token_ptr> token_vector ;
 
 	// Custom exception class for library errors
-	class TemplateException : public std::exception
+	class TemplateException : public std::runtime_error
 	{
 	public:
-		TemplateException(std::string reason) : m_reason(reason){}
-		~TemplateException() throw() {}
-		const char* what() throw() {
-			return m_reason.c_str();
-		}
-	private:
-		std::string m_reason;
+		TemplateException(std::string reason) : std::runtime_error(reason) {}
 	};
 
 	// convenience functions for making data objects
@@ -189,8 +190,10 @@ namespace cpptempl
 		TOKEN_TYPE_VAR,
 		TOKEN_TYPE_IF,
 		TOKEN_TYPE_FOR,
+        TOKEN_TYPE_DEF,
 		TOKEN_TYPE_ENDIF,
 		TOKEN_TYPE_ENDFOR,
+        TOKEN_TYPE_ENDDEF
 	} TokenType;
 
 	// Template tokens
@@ -202,6 +205,16 @@ namespace cpptempl
 		virtual void gettext(std::ostream &stream, data_map &data) = 0 ;
 		virtual void set_children(token_vector &children);
 		virtual token_vector & get_children();
+	};
+
+	// token with children
+	class TokenParent : public Token
+	{
+    protected:
+		token_vector m_children ;
+	public:
+		void set_children(token_vector &children);
+		token_vector &get_children();
 	};
 
 	// normal text
@@ -225,40 +238,44 @@ namespace cpptempl
 	};
 
 	// for block
-	class TokenFor : public Token 
+	class TokenFor : public TokenParent
 	{
         std::string m_key ;
         std::string m_val ;
-		token_vector m_children ;
 	public:
 		TokenFor(std::string expr);
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
-		void set_children(token_vector &children);
-		token_vector &get_children();
 	};
 
 	// if block
-	class TokenIf : public Token
+	class TokenIf : public TokenParent
 	{
         std::string m_expr ;
-		token_vector m_children ;
 	public:
-		TokenIf(std::string expr) : m_expr(expr){}
+		TokenIf(std::string expr) : TokenParent(), m_expr(expr){}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 		bool is_true(std::string expr, data_map &data);
-		void set_children(token_vector &children);
-		token_vector &get_children();
 	};
+
+    // def block
+    class TokenDef : public TokenParent
+    {
+        std::string m_name;
+	public:
+        TokenDef(std::string name);
+        TokenType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+    };
 
 	// end of block
 	class TokenEnd : public Token // end of control block
 	{
-        std::string m_type ;
+        TokenType m_type ;
 	public:
-		TokenEnd(std::string text) : m_type(text){}
-		TokenType gettype();
+		TokenEnd(std::string text);
+		TokenType gettype() { return m_type; }
 		void gettext(std::ostream &stream, data_map &data);
 	};
 

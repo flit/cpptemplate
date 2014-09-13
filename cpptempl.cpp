@@ -10,6 +10,9 @@
 
 namespace cpptempl
 {
+
+    std::string strip_comment(std::string text);
+
 	//////////////////////////////////////////////////////////////////////////
 	// Data classes
 	//////////////////////////////////////////////////////////////////////////
@@ -103,6 +106,37 @@ namespace cpptempl
 	//////////////////////////////////////////////////////////////////////////
 	// parse_val
 	//////////////////////////////////////////////////////////////////////////
+	data_ptr& data_map::parse_path(const std::string & key, bool create)
+	{
+        if (key.empty())
+        {
+            throw key_error("empty map key");
+        }
+
+		// check for dotted notation, i.e [foo.bar]
+		size_t index = key.find(".") ;
+		if (index == std::string::npos)
+		{
+			if (!has(key))
+			{
+                if (!create)
+                {
+                    throw key_error("invalid map key");
+                }
+                data[key] = make_data("");
+            }
+			return data[key] ;
+		}
+
+        std::string sub_key = key.substr(0, index) ;
+		if (!has(sub_key))
+		{
+			throw key_error("invalid map key");
+		}
+
+		return data[sub_key]->getmap().parse_path(key.substr(index+1), create) ;
+	}
+
 	data_ptr parse_val(std::string key, data_map &data)
 	{
 		// quoted string
@@ -110,24 +144,15 @@ namespace cpptempl
 		{
 			return make_data(boost::trim_copy_if(key, boost::is_any_of("\""))) ;
 		}
-		// check for dotted notation, i.e [foo.bar]
-		size_t index = key.find(".") ;
-		if (index == std::string::npos)
-		{
-			if (!data.has(key))
-			{
-				return make_data("{$" + key + "}") ;
-			}
-			return data[key] ;
-		}
 
-        std::string sub_key = key.substr(0, index) ;
-		if (!data.has(sub_key))
-		{
-			return make_data("{$" + key + "}") ;
-		}
-		data_ptr item = data[sub_key] ;
-		return parse_val(key.substr(index+1), item->getmap()) ;
+        try
+        {
+            return data.parse_path(key);
+        }
+        catch (data_map::key_error & e)
+        {
+            return make_data("{$" + key + "}") ;
+        }
 	}
 
 	//////////////////////////////////////////////////////////////////////////
@@ -167,8 +192,20 @@ namespace cpptempl
 		stream << parse_val(m_key, data)->getvalue() ;
 	}
 
+	// TokenVar
+	void TokenParent::set_children( token_vector &children )
+	{
+		m_children.assign(children.begin(), children.end()) ;
+	}
+
+	token_vector & TokenParent::get_children()
+	{
+		return m_children;
+	}
+
 	// TokenFor
 	TokenFor::TokenFor(std::string expr)
+    :   TokenParent()
 	{
 		std::vector<std::string> elements ;
 		boost::split(elements, expr, boost::is_space()) ;
@@ -201,16 +238,6 @@ namespace cpptempl
 				m_children[j]->gettext(stream, data) ;
 			}
 		}
-	}
-
-	void TokenFor::set_children( token_vector &children )
-	{
-		m_children.assign(children.begin(), children.end()) ;
-	}
-
-	token_vector & TokenFor::get_children()
-	{
-		return m_children;
 	}
 
 	// TokenIf
@@ -259,20 +286,63 @@ namespace cpptempl
         }
 	}
 
-	void TokenIf::set_children( token_vector &children )
+	// TokenDef
+    TokenDef::TokenDef(std::string name)
+    :   TokenParent()
+    {
+		std::vector<std::string> elements ;
+		boost::split(elements, name, boost::is_space()) ;
+		if (elements.size() != 2u)
+		{
+			throw TemplateException("Invalid syntax in def statement") ;
+		}
+		m_name = elements[1] ;
+    }
+
+	TokenType TokenDef::gettype()
 	{
-		m_children.assign(children.begin(), children.end()) ;
+		return TOKEN_TYPE_DEF ;
 	}
 
-	token_vector & TokenIf::get_children()
+	void TokenDef::gettext( std::ostream &stream, data_map &data )
 	{
-		return m_children;
+        try
+        {
+            data_ptr& target = data.parse_path(m_name, true);
+
+            std::ostringstream buf;
+            for(size_t j = 0 ; j < m_children.size() ; ++j)
+            {
+                m_children[j]->gettext(buf, data) ;
+            }
+
+            target = buf.str();
+        }
+        catch (data_map::key_error &)
+        {
+            // ignore exception
+        }
 	}
 
 	// TokenEnd
-	TokenType TokenEnd::gettype()
-	{
-		return m_type == "endfor" ? TOKEN_TYPE_ENDFOR : TOKEN_TYPE_ENDIF ;
+    TokenEnd::TokenEnd(std::string text)
+    {
+		if (boost::starts_with(text, "endfor"))
+        {
+            m_type = TOKEN_TYPE_ENDFOR;
+        }
+        else if (boost::starts_with(text, "endif"))
+        {
+            m_type = TOKEN_TYPE_ENDIF;
+        }
+        else if (boost::starts_with(text, "enddef"))
+        {
+            m_type = TOKEN_TYPE_ENDDEF;
+        }
+        else
+        {
+            throw TemplateException("Unknown end of control statement");
+        }
 	}
 
 	void TokenEnd::gettext( std::ostream &, data_map &)
@@ -313,6 +383,12 @@ namespace cpptempl
 				parse_tree(tokens, children, TOKEN_TYPE_ENDIF) ;
 				token->set_children(children) ;
 			}
+			else if (token->gettype() == TOKEN_TYPE_DEF)
+			{
+				token_vector children ;
+				parse_tree(tokens, children, TOKEN_TYPE_ENDDEF) ;
+				token->set_children(children) ;
+			}
 			else if (token->gettype() == until)
 			{
 				return ;
@@ -320,6 +396,18 @@ namespace cpptempl
 			tree.push_back(token) ;
 		}
 	}
+
+    std::string strip_comment(std::string text)
+    {
+        size_t pos = text.find("--");
+        if (pos == std::string::npos)
+        {
+            return boost::trim_copy(text);
+        }
+
+        return boost::trim_copy(text.substr(0, pos));
+    }
+
 	//////////////////////////////////////////////////////////////////////////
 	// tokenize
 	// parses a template into tokens (text, for, if, variable)
@@ -378,7 +466,7 @@ namespace cpptempl
 				pos = text.find("}") ;
 				if (pos != std::string::npos)
 				{
-                    std::string expression = boost::trim_copy(text.substr(1, pos-2)) ;
+                    std::string expression = strip_comment(text.substr(1, pos-2)) ;
 
                     bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n';
 
@@ -392,13 +480,18 @@ namespace cpptempl
                     {
                         text = text.substr(pos+1) ;
                     }
-					if (boost::starts_with(expression, "for"))
+
+					if (boost::starts_with(expression, "for "))
 					{
 						tokens.push_back(token_ptr (new TokenFor(expression))) ;
 					}
-					else if (boost::starts_with(expression, "if"))
+					else if (boost::starts_with(expression, "if "))
 					{
 						tokens.push_back(token_ptr (new TokenIf(expression))) ;
+					}
+					else if (boost::starts_with(expression, "def "))
+					{
+						tokens.push_back(token_ptr (new TokenDef(expression))) ;
 					}
 					else
 					{
