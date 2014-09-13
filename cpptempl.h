@@ -7,7 +7,7 @@ Syntax
 =================
 Variables: {$variable_name}
 Loops: {% for person in people %}Name: {$person.name}{% endfor %}
-If: {% for person.name == "Bob" %}Full name: Robert{% endif %}
+If: {% if person.name == "Bob" %}Full name: Robert{% endif %}
 
 Copyright
 ==================
@@ -55,77 +55,18 @@ Example:
 namespace cpptempl
 {
 	// various typedefs
+    class data_ptr;
+    class data_map;
+    class DataMap;
 
-	// data classes
-	class Data ;
-	class DataValue ;
-	class DataList ;
-	class DataMap ;
-
-	class data_ptr {
-	public:
-		data_ptr() {}
-		template<typename T> data_ptr(const T& data) {
-			this->operator =(data);
-		}
-		data_ptr(DataValue* data) : ptr(data) {}
-		data_ptr(DataList* data) : ptr(data) {}
-		data_ptr(DataMap* data) : ptr(data) {}
-		data_ptr(const data_ptr& data) {
-			ptr = data.ptr;
-		}
-		template<typename T> void operator = (const T& data);
-		void push_back(const data_ptr& data);
-		virtual ~data_ptr() {}
-		Data* operator ->() {
-			return ptr.get();
-		}
-	private:
-		std::shared_ptr<Data> ptr;
-	};
 	typedef std::vector<data_ptr> data_list ;
 
-	class data_map {
-	public:
-		data_ptr& operator [](const std::string& key);
-		bool empty();
-		bool has(const std::string& key);
-	private:
-		std::unordered_map<std::string, data_ptr> data;
-	};
 
-	template<> inline void data_ptr::operator = (const data_ptr& data);
-	template<> void data_ptr::operator = (const std::string& data);
-	template<> void data_ptr::operator = (const std::string& data);
-	template<> void data_ptr::operator = (const data_map& data);
-	template<typename T>
-	void data_ptr::operator = (const T& data) {
-		std::string data_str = boost::lexical_cast<std::string>(data);
-		this->operator =(data_str);
-	}
-
-	// token classes
-	class Token ;
-	typedef std::shared_ptr<Token> token_ptr ;
-	typedef std::vector<token_ptr> token_vector ;
-
-	// Custom exception class for library errors
-	class TemplateException : public std::exception
-	{
-	public:
-		TemplateException(std::string reason) : m_reason(reason){}
-		~TemplateException() throw() {}
-		const char* what() throw() {
-			return m_reason.c_str();
-		}
-	private:
-		std::string m_reason;
-	};
-
-	// Data types used in templates
+	// data classes
 	class Data
 	{
 	public:
+        virtual ~Data()=default;
 		virtual bool empty() = 0 ;
 		virtual std::string getvalue();
 		virtual data_list& getlist();
@@ -150,6 +91,37 @@ namespace cpptempl
 		bool empty();
 	};
 
+	class data_ptr {
+	public:
+		data_ptr() {}
+		template<typename T> data_ptr(const T& data) {
+			this->operator =(data);
+		}
+		data_ptr(DataValue* data);
+        data_ptr(DataList* data);
+        data_ptr(DataMap* data);
+		data_ptr(const data_ptr& data) {
+			ptr = data.ptr;
+		}
+		template<typename T> void operator = (const T& data);
+		void push_back(const data_ptr& data);
+		virtual ~data_ptr() {}
+		Data* operator ->() {
+			return ptr.get();
+		}
+	private:
+		std::shared_ptr<Data> ptr;
+	};
+
+	class data_map {
+	public:
+		data_ptr& operator [](const std::string& key);
+		bool empty();
+		bool has(const std::string& key);
+	private:
+		std::unordered_map<std::string, data_ptr> data;
+	};
+
 	class DataMap : public Data
 	{
 		data_map m_items ;
@@ -157,6 +129,34 @@ namespace cpptempl
 		DataMap(const data_map &items) : m_items(items){}
 		data_map& getmap();
 		bool empty();
+	};
+
+	template<> inline void data_ptr::operator = (const data_ptr& data);
+	template<> void data_ptr::operator = (const std::string& data);
+	template<> void data_ptr::operator = (const data_map& data);
+	template<> void data_ptr::operator = (const data_list& data);
+	template<typename T>
+	void data_ptr::operator = (const T& data) {
+		std::string data_str = boost::lexical_cast<std::string>(data);
+		this->operator =(data_str);
+	}
+
+	// token classes
+	class Token ;
+	typedef std::shared_ptr<Token> token_ptr ;
+	typedef std::vector<token_ptr> token_vector ;
+
+	// Custom exception class for library errors
+	class TemplateException : public std::exception
+	{
+	public:
+		TemplateException(std::string reason) : m_reason(reason){}
+		~TemplateException() throw() {}
+		const char* what() throw() {
+			return m_reason.c_str();
+		}
+	private:
+		std::string m_reason;
 	};
 
 	// convenience functions for making data objects
@@ -172,6 +172,12 @@ namespace cpptempl
 	{
 		return data_ptr(new DataMap(val)) ;
 	}
+    template <typename T>
+    data_ptr make_data(const T &val)
+    {
+        return data_ptr(boost::lexical_cast<std::string>(val));
+    }
+
 	// get a data value from a data map
 	// e.g. foo.bar => data["foo"]["bar"]
 	data_ptr parse_val(std::string key, data_map &data) ;
@@ -265,5 +271,4 @@ namespace cpptempl
 	// and get out a completed doc.
 	void parse(std::ostream &stream, std::string templ_text, data_map &data) ;
     std::string parse(std::string templ_text, data_map &data);
-	std::string parse(std::string templ_text, data_map &data);
 }

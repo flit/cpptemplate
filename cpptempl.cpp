@@ -14,6 +14,10 @@ namespace cpptempl
 	// Data classes
 	//////////////////////////////////////////////////////////////////////////
 
+    data_ptr::data_ptr(DataValue* data) : ptr(data) {}
+    data_ptr::data_ptr(DataList* data) : ptr(data) {}
+    data_ptr::data_ptr(DataMap* data) : ptr(data) {}
+
 	// data_map
 	data_ptr& data_map::operator [](const std::string& key) {
 		return data[key];
@@ -39,6 +43,11 @@ namespace cpptempl
 	template<>
 	void data_ptr::operator = (const data_map& data) {
 		ptr.reset(new DataMap(data));
+	}
+
+	template<>
+	void data_ptr::operator = (const data_list& data) {
+		ptr.reset(new DataList(data));
 	}
 
 	void data_ptr::push_back(const data_ptr& data) {
