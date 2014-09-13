@@ -233,27 +233,36 @@ namespace impl
         }
 
         // parse path and get resulting data object
-        data_ptr result;
         try
         {
-            result = data.parse_path(key);
+            data_ptr result = data.parse_path(key);
+
+            // evaluate function
+            if (fn == "empty")
+            {
+                result = result->getlist().empty();
+            }
+            else if (fn == "count")
+            {
+                result = result->getlist().size();
+            }
+            else if (fn == "defined")
+            {
+                result = true;
+            }
+
+            return result;
         }
         catch (data_map::key_error & e)
         {
+            // Check if we got the error inside a defined() fn.
+            if (fn == "defined")
+            {
+                return data_ptr(false);
+            }
+
             return make_data("{$" + key + "}") ;
         }
-
-        // evaluate function
-        if (fn == "empty")
-        {
-            result = result->getlist().empty();
-        }
-        else if (fn == "count")
-        {
-            result = result->getlist().size();
-        }
-
-        return result;
 	}
 
 	//////////////////////////////////////////////////////////////////////////
