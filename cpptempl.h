@@ -87,6 +87,7 @@ namespace cpptempl
         std::string m_value ;
 	public:
 		DataValue(std::string value) : m_value(value){}
+		DataValue(std::string&& value) : m_value(value){}
         std::string getvalue();
 		bool empty();
 	};
@@ -96,6 +97,7 @@ namespace cpptempl
 		data_list m_items ;
 	public:
 		DataList(const data_list &items) : m_items(items){}
+		DataList(const data_list &&items) : m_items(items){}
 		data_list& getlist() ;
 		bool empty();
 	};
@@ -114,6 +116,7 @@ namespace cpptempl
 			ptr = data.ptr;
 		}
 		template<typename T> void operator = (const T& data);
+		template<typename T> void operator = (const T&& data);
 		void push_back(const data_ptr& data);
 		virtual ~data_ptr() {}
 		Data* operator ->() {
@@ -144,19 +147,29 @@ namespace cpptempl
 		data_map m_items ;
 	public:
 		DataMap(const data_map &items) : m_items(items){}
+		DataMap(const data_map &&items) : m_items(items){}
 		data_map& getmap();
 		bool empty();
 	};
 
-	template<> inline void data_ptr::operator = (const data_ptr& data);
+	template<> void data_ptr::operator = (const data_ptr& data);
 	template<> void data_ptr::operator = (const bool& data);
 	template<> void data_ptr::operator = (const std::string& data);
 	template<> void data_ptr::operator = (const data_map& data);
 	template<> void data_ptr::operator = (const data_list& data);
 	template<typename T>
 	void data_ptr::operator = (const T& data) {
-		std::string data_str = boost::lexical_cast<std::string>(data);
-		this->operator =(data_str);
+		this->operator =(boost::lexical_cast<std::string>(data));
+	}
+
+	template<> void data_ptr::operator = (const data_ptr&& data);
+	template<> void data_ptr::operator = (const bool&& data);
+	template<> void data_ptr::operator = (const std::string&& data);
+	template<> void data_ptr::operator = (const data_map&& data);
+	template<> void data_ptr::operator = (const data_list&& data);
+	template<typename T>
+	void data_ptr::operator = (const T&& data) {
+		this->operator =(boost::lexical_cast<std::string>(data));
 	}
 
 	// token classes
@@ -187,7 +200,11 @@ namespace cpptempl
 	{
 		return data_ptr(new DataBool(val)) ;
 	}
-	inline data_ptr make_data(std::string val)
+	inline data_ptr make_data(std::string &val)
+	{
+		return data_ptr(new DataValue(val)) ;
+	}
+	inline data_ptr make_data(std::string &&val)
 	{
 		return data_ptr(new DataValue(val)) ;
 	}
@@ -195,7 +212,15 @@ namespace cpptempl
 	{
 		return data_ptr(new DataList(val)) ;
 	}
+	inline data_ptr make_data(data_list &&val)
+	{
+		return data_ptr(new DataList(val)) ;
+	}
 	inline data_ptr make_data(data_map &val)
+	{
+		return data_ptr(new DataMap(val)) ;
+	}
+	inline data_ptr make_data(data_map &&val)
 	{
 		return data_ptr(new DataMap(val)) ;
 	}

@@ -37,7 +37,7 @@ namespace cpptempl
 
 	// data_ptr
 	template<>
-	inline void data_ptr::operator = (const data_ptr& data) {
+	void data_ptr::operator = (const data_ptr& data) {
 		ptr = data.ptr;
 	}
 
@@ -58,6 +58,31 @@ namespace cpptempl
 
 	template<>
 	void data_ptr::operator = (const data_list& data) {
+		ptr.reset(new DataList(data));
+	}
+
+	template<>
+	void data_ptr::operator = (const data_ptr&& data) {
+		ptr = data.ptr;
+	}
+
+	template<>
+	void data_ptr::operator = (const bool&& data) {
+		ptr.reset(new DataBool(data));
+	}
+
+	template<>
+	void data_ptr::operator = (const std::string&& data) {
+		ptr.reset(new DataValue(data));
+	}
+
+	template<>
+	void data_ptr::operator = (const data_map&& data) {
+		ptr.reset(new DataMap(data));
+	}
+
+	template<>
+	void data_ptr::operator = (const data_list&& data) {
 		ptr.reset(new DataList(data));
 	}
 
