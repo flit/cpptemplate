@@ -15,6 +15,112 @@ namespace cpptempl
 namespace impl
 {
 
+	typedef enum
+	{
+		TOKEN_TYPE_NONE,
+		TOKEN_TYPE_TEXT,
+		TOKEN_TYPE_VAR,
+		TOKEN_TYPE_IF,
+		TOKEN_TYPE_FOR,
+        TOKEN_TYPE_DEF,
+		TOKEN_TYPE_ENDIF,
+		TOKEN_TYPE_ENDFOR,
+        TOKEN_TYPE_ENDDEF
+	} TokenType;
+
+	// Template tokens
+	// base class for all token types
+	class Token
+	{
+        uint32_t m_line;
+	public:
+        Token(uint32_t line) : m_line(line) {}
+		virtual TokenType gettype() = 0 ;
+		virtual void gettext(std::ostream &stream, data_map &data) = 0 ;
+		virtual void set_children(token_vector &children);
+		virtual token_vector & get_children();
+        uint32_t get_line() { return m_line; }
+        void set_line(uint32_t line) { m_line = line; }
+	};
+
+	// token with children
+	class TokenParent : public Token
+	{
+    protected:
+		token_vector m_children ;
+	public:
+        TokenParent(uint32_t line) : Token(line) {}
+		void set_children(token_vector &children);
+		token_vector &get_children();
+	};
+
+	// normal text
+	class TokenText : public Token
+	{
+        std::string m_text ;
+	public:
+		TokenText(std::string text, uint32_t line=0) : Token(line), m_text(text){}
+		TokenType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+	};
+
+	// variable
+	class TokenVar : public Token
+	{
+        std::string m_key ;
+	public:
+		TokenVar(std::string key, uint32_t line=0) : Token(line), m_key(key){}
+		TokenType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+	};
+
+	// for block
+	class TokenFor : public TokenParent
+	{
+        std::string m_key ;
+        std::string m_val ;
+	public:
+		TokenFor(std::string expr, uint32_t line=0);
+		TokenType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+	};
+
+	// if block
+	class TokenIf : public TokenParent
+	{
+        std::string m_expr ;
+	public:
+		TokenIf(std::string expr, uint32_t line=0) : TokenParent(line), m_expr(expr){}
+		TokenType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+		bool is_true(std::string expr, data_map &data);
+	};
+
+    // def block
+    class TokenDef : public TokenParent
+    {
+        std::string m_name;
+	public:
+        TokenDef(std::string name, uint32_t line=0);
+        TokenType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+    };
+
+	// end of block
+	class TokenEnd : public Token // end of control block
+	{
+        TokenType m_type ;
+	public:
+		TokenEnd(std::string text, uint32_t line=0);
+		TokenType gettype() { return m_type; }
+		void gettext(std::ostream &stream, data_map &data);
+	};
+
+    std::string gettext(token_ptr token, data_map &data) ;
+
+	void parse_tree(token_vector &tokens, token_vector &tree, TokenType until=TOKEN_TYPE_NONE) ;
+	token_vector & tokenize(std::string text, token_vector &tokens) ;
+
 	// get a data value from a data map
 	// e.g. foo.bar => data["foo"]["bar"]
 	data_ptr parse_val(std::string key, data_map &data) ;
