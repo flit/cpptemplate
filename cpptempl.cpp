@@ -28,10 +28,12 @@ namespace impl
 	// Data classes
 	//////////////////////////////////////////////////////////////////////////
 
+    // These ctors are defined here to resolve definition ordering issues with clang.
     data_ptr::data_ptr(DataBool* data) : ptr(data) {}
     data_ptr::data_ptr(DataValue* data) : ptr(data) {}
     data_ptr::data_ptr(DataList* data) : ptr(data) {}
     data_ptr::data_ptr(DataMap* data) : ptr(data) {}
+    data_ptr::data_ptr(DataTemplate* data) : ptr(data) {}
 
 	// data_map
 	data_ptr& data_map::operator [](const std::string& key) {
@@ -146,7 +148,7 @@ namespace impl
 		return m_items.empty();
 	}
 	// data map
-	data_map& DataMap:: getmap()
+	data_map& DataMap::getmap()
 	{
 		return m_items ;
 	}
@@ -154,6 +156,45 @@ namespace impl
 	{
 		return m_items.empty();
 	}
+
+    // data template
+    DataTemplate::DataTemplate(const std::string & templateText)
+    {
+        // Parse the template
+		impl::token_vector tokens ;
+		impl::tokenize(templateText, tokens) ;
+		impl::parse_tree(tokens, m_tree) ;
+    }
+
+    std::string DataTemplate::getvalue()
+	{
+		return "";
+	}
+
+	bool DataTemplate::empty()
+	{
+		return false;
+	}
+
+    std::string DataTemplate::parse(data_map & data)
+    {
+        std::ostringstream stream;
+		for (size_t i = 0 ; i < m_tree.size() ; ++i)
+		{
+			// Recursively calls gettext on each node in the tree.
+			// gettext returns the appropriate text for that node.
+			// for text, itself;
+			// for variable, substitution;
+			// for control statement, recursively gets kids
+			m_tree[i]->gettext(stream, data) ;
+		}
+		return stream.str() ;
+    }
+
+    bool data_ptr::isTemplate() const
+    {
+        return (dynamic_cast<DataTemplate*>(ptr.get()) != nullptr);
+    }
 
     TemplateException::TemplateException(size_t line, std::string reason)
     :   std::exception(),
@@ -170,6 +211,11 @@ namespace impl
             m_line = line;
             m_reason = std::string("Line ") + boost::lexical_cast<std::string>(line) + ": " + m_reason;
         }
+    }
+
+    data_ptr make_template(const std::string & templateText)
+    {
+        return data_ptr(new DataTemplate(templateText));
     }
 
 	//////////////////////////////////////////////////////////////////////////
@@ -249,6 +295,13 @@ namespace impl
             else if (fn == "defined")
             {
                 result = true;
+            }
+            // Template have to be handled specially since they need the data map.
+            else if (fn.empty() && result.isTemplate())
+            {
+                std::shared_ptr<Data> tmplData = result.get();
+                DataTemplate * tmpl = dynamic_cast<DataTemplate*>(tmplData.get());
+                return make_data(tmpl->parse(data));
             }
 
             return result;
@@ -446,15 +499,12 @@ namespace impl
 	{
         try
         {
+            // Follow the key path.
             data_ptr& target = data.parse_path(m_name, true);
 
-            std::ostringstream buf;
-            for(size_t j = 0 ; j < m_children.size() ; ++j)
-            {
-                m_children[j]->gettext(buf, data) ;
-            }
-
-            target = buf.str();
+            // Set the map entry's value to a template. The tokens were already
+            // parsed and set as our m_children vector.
+            target = data_ptr(new DataTemplate(m_children));
         }
         catch (data_map::key_error &)
         {

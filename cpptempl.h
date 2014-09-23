@@ -169,6 +169,7 @@ namespace cpptempl
     class data_ptr;
     class data_map;
     class DataMap;
+    class DataTemplate;
 
 	typedef std::vector<data_ptr> data_list ;
 
@@ -197,8 +198,8 @@ namespace cpptempl
 	{
         std::string m_value ;
 	public:
-		DataValue(std::string value) : m_value(value){}
-		DataValue(std::string&& value) : m_value(value){}
+		DataValue(const std::string& value) : m_value(value){}
+		DataValue(const std::string&& value) : m_value(value){}
         std::string getvalue();
 		bool empty();
 	};
@@ -223,6 +224,7 @@ namespace cpptempl
 		data_ptr(DataValue* data);
         data_ptr(DataList* data);
         data_ptr(DataMap* data);
+        data_ptr(DataTemplate* data);
 		data_ptr(const data_ptr& data) {
 			ptr = data.ptr;
 		}
@@ -233,6 +235,8 @@ namespace cpptempl
 		Data* operator ->() {
 			return ptr.get();
 		}
+        std::shared_ptr<Data> get() { return ptr; }
+        bool isTemplate() const;
 	private:
 		std::shared_ptr<Data> ptr;
 	};
@@ -335,6 +339,8 @@ namespace cpptempl
     {
         return data_ptr(boost::lexical_cast<std::string>(val));
     }
+
+    data_ptr make_template(const std::string & templateText);
 
 namespace impl {
 
@@ -450,6 +456,18 @@ namespace impl {
 	token_vector & tokenize(std::string text, token_vector &tokens) ;
 
 } // namespace impl
+
+    class DataTemplate : public Data
+    {
+        impl::token_vector m_tree;
+    public:
+		DataTemplate(const std::string & templateText);
+		DataTemplate(const impl::token_vector &tree) : m_tree(tree) {}
+		DataTemplate(const impl::token_vector &&tree) : m_tree(tree) {}
+		virtual std::string getvalue();
+		virtual bool empty();
+		std::string parse(data_map & data);
+    };
 
 	// The big daddy. Pass in the template and data,
 	// and get out a completed doc.
