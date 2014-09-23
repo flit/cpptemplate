@@ -663,6 +663,7 @@ namespace impl
 				pos = text.find("}") ;
 				if (pos != std::string::npos)
 				{
+                    uint32_t savedLine = currentLine;
                     pre_text = text.substr(1, pos-2) ;
                     currentLine += count_newlines(pre_text) ;
                     std::string expression = strip_comment(pre_text) ;
@@ -672,47 +673,58 @@ namespace impl
                     // Chop off following eol if this control statement is on a line by itself.
                     if (eolPrecedes && eolFollows)
                     {
-                        text = text.substr(pos+2) ;
+                        ++pos ;
+                        ++currentLine ;
                         lastWasEol = true ;
                     }
-                    else
-                    {
-                        text = text.substr(pos+1) ;
-                    }
+
+                    text = text.substr(pos+1) ;
 
                     // Create control statement tokens.
 					if (boost::starts_with(expression, "for "))
 					{
-						tokens.push_back(token_ptr (new TokenFor(expression, currentLine))) ;
+						tokens.push_back(token_ptr (new TokenFor(expression, savedLine))) ;
 					}
 					else if (boost::starts_with(expression, "if "))
 					{
-						tokens.push_back(token_ptr (new TokenIf(expression, currentLine))) ;
+						tokens.push_back(token_ptr (new TokenIf(expression, savedLine))) ;
 					}
 					else if (boost::starts_with(expression, "def "))
 					{
-						tokens.push_back(token_ptr (new TokenDef(expression, currentLine))) ;
+						tokens.push_back(token_ptr (new TokenDef(expression, savedLine))) ;
 					}
 					else if (boost::starts_with(expression, "end"))
 					{
-						tokens.push_back(token_ptr (new TokenEnd(boost::trim_copy(expression), currentLine))) ;
+						tokens.push_back(token_ptr (new TokenEnd(boost::trim_copy(expression), savedLine))) ;
 					}
                     else
                     {
-                        throw TemplateException(currentLine, "Unrecognized control statement");
-                    }
-
-                    // Increment current line to account for the newline we just chopped off.
-                    if (eolPrecedes && eolFollows)
-                    {
-                        ++currentLine;
+                        throw TemplateException(savedLine, "Unrecognized control statement");
                     }
 				}
-                else
-                {
-                    tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
-                }
 			}
+			// comment
+			else if (text[0] == '#')
+			{
+				pos = text.find("}") ;
+				if (pos != std::string::npos)
+				{
+                    pre_text = text.substr(1, pos-2) ;
+                    currentLine += count_newlines(pre_text) ;
+
+                    bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n' ;
+
+                    // Chop off following eol if this comment is on a line by itself.
+                    if (eolPrecedes && eolFollows)
+                    {
+                        ++pos ;
+                        ++currentLine ;
+                        lastWasEol = true ;
+                    }
+
+                    text = text.substr(pos+1) ;
+				}
+            }
 			else
 			{
 				tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
