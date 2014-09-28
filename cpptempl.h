@@ -230,7 +230,7 @@ namespace cpptempl
         std::string m_value ;
 	public:
 		DataValue(const std::string& value) : m_value(value){}
-		DataValue(const std::string&& value) : m_value(value){}
+		DataValue(std::string&& value) : m_value(value){}
         std::string getvalue();
 		bool empty();
 	};
@@ -240,7 +240,7 @@ namespace cpptempl
 		data_list m_items ;
 	public:
 		DataList(const data_list &items) : m_items(items){}
-		DataList(const data_list &&items) : m_items(items){}
+		DataList(data_list &&items) : m_items(items){}
 		data_list& getlist() ;
 		bool empty();
 	};
@@ -259,8 +259,21 @@ namespace cpptempl
 		data_ptr(const data_ptr& data) {
 			ptr = data.ptr;
 		}
+        data_ptr(data_ptr&& data) {
+            ptr = std::move(data.ptr);
+        }
+        data_ptr& operator = (const data_ptr& data) {
+            ptr = data.ptr;
+            return *this;
+        }
+        data_ptr& operator = (data_ptr&& data) {
+            ptr = std::move(data.ptr);
+            return *this;
+        }
+        data_ptr& operator =(std::string&& data);
+        data_ptr& operator =(data_map&& data);
+        data_ptr& operator =(data_list&& data);
 		template<typename T> void operator = (const T& data);
-		template<typename T> void operator = (const T&& data);
 		void push_back(const data_ptr& data);
 		virtual ~data_ptr() {}
 		Data* operator ->() {
@@ -293,28 +306,17 @@ namespace cpptempl
 		data_map m_items ;
 	public:
 		DataMap(const data_map &items) : m_items(items){}
-		DataMap(const data_map &&items) : m_items(items){}
+		DataMap(data_map &&items) : m_items(items){}
 		data_map& getmap();
 		bool empty();
 	};
 
-	template<> void data_ptr::operator = (const data_ptr& data);
 	template<> void data_ptr::operator = (const bool& data);
 	template<> void data_ptr::operator = (const std::string& data);
 	template<> void data_ptr::operator = (const data_map& data);
 	template<> void data_ptr::operator = (const data_list& data);
 	template<typename T>
 	void data_ptr::operator = (const T& data) {
-		this->operator =(boost::lexical_cast<std::string>(data));
-	}
-
-	template<> void data_ptr::operator = (const data_ptr&& data);
-	template<> void data_ptr::operator = (const bool&& data);
-	template<> void data_ptr::operator = (const std::string&& data);
-	template<> void data_ptr::operator = (const data_map&& data);
-	template<> void data_ptr::operator = (const data_list&& data);
-	template<typename T>
-	void data_ptr::operator = (const T&& data) {
 		this->operator =(boost::lexical_cast<std::string>(data));
 	}
 
@@ -388,7 +390,7 @@ namespace impl {
     public:
 		DataTemplate(const std::string & templateText);
 		DataTemplate(const impl::token_vector &tree) : m_tree(tree) {}
-		DataTemplate(const impl::token_vector &&tree) : m_tree(tree) {}
+		DataTemplate(impl::token_vector &&tree) : m_tree(tree) {}
 		virtual std::string getvalue();
 		virtual bool empty();
 		std::string parse(data_map & data);
