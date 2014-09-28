@@ -377,28 +377,28 @@ namespace cpptempl
 
 namespace impl {
 
-	// token classes
-	class Token ;
-	typedef std::shared_ptr<Token> token_ptr ;
-	typedef std::vector<token_ptr> token_vector ;
+	// node classes
+	class Node ;
+	typedef std::shared_ptr<Node> node_ptr ;
+	typedef std::vector<node_ptr> node_vector ;
 
 } // namespace impl
 
     // List of param names.
-    typedef std::vector<std::string> string_vector_t;
+    typedef std::vector<std::string> string_vector;
 
     class DataTemplate : public Data
     {
-        impl::token_vector m_tree;
-        string_vector_t m_params;
+        impl::node_vector m_tree;
+        string_vector m_params;
     public:
 		DataTemplate(const std::string & templateText);
-		DataTemplate(const impl::token_vector &tree) : m_tree(tree) {}
-		DataTemplate(impl::token_vector &&tree) : m_tree(tree) {}
+		DataTemplate(const impl::node_vector &tree) : m_tree(tree) {}
+		DataTemplate(impl::node_vector &&tree) : m_tree(tree) {}
 		virtual std::string getvalue();
 		virtual bool empty();
 		std::string parse(data_map & data);
-        string_vector_t & params();
+        string_vector & params();
     };
 
 	// The big daddy. Pass in the template and data,

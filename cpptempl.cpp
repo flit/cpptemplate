@@ -15,7 +15,7 @@ namespace cpptempl
 namespace impl
 {
     // Types of tokens in control statements.
-    enum stmt_token_type_t
+    enum TokenType
     {
         INVALID_TOKEN,
         KEY_PATH_TOKEN,
@@ -39,60 +39,60 @@ namespace impl
     };
 
     // Represents a token in a control statement.
-    class StatementToken
+    class Token
     {
-        stmt_token_type_t m_type;
+        TokenType m_type;
         std::string m_value;
     public:
-        StatementToken(stmt_token_type_t tokenType) : m_type(tokenType), m_value() {}
-        StatementToken(stmt_token_type_t tokenType, const std::string & value) : m_type(tokenType), m_value(value) {}
-        StatementToken(const StatementToken & other) : m_type(other.m_type), m_value(other.m_value) {}
-        StatementToken(StatementToken && other) : m_type(other.m_type), m_value(std::move(other.m_value)) {}
-        StatementToken& operator=(const StatementToken & other)=default;
-        StatementToken& operator=(StatementToken && other)
+        Token(TokenType tokenType) : m_type(tokenType), m_value() {}
+        Token(TokenType tokenType, const std::string & value) : m_type(tokenType), m_value(value) {}
+        Token(const Token & other) : m_type(other.m_type), m_value(other.m_value) {}
+        Token(Token && other) : m_type(other.m_type), m_value(std::move(other.m_value)) {}
+        Token& operator=(const Token & other)=default;
+        Token& operator=(Token && other)
         {
             m_type = other.m_type;
             m_value.assign(std::move(other.m_value));
             return *this;
         }
-        ~StatementToken()=default;
+        ~Token()=default;
 
-        stmt_token_type_t get_type() const { return m_type; }
+        TokenType get_type() const { return m_type; }
         const std::string & get_value() const { return m_value; }
     };
 
-    typedef std::vector<StatementToken> stmt_token_vector_t;
+    typedef std::vector<Token> token_vector;
 
     // Helper class for parsing tokens.
-    class StmtTokenIterator
+    class TokenIterator
     {
-        stmt_token_vector_t & m_tokens;
+        token_vector & m_tokens;
         size_t m_index;
-        static StatementToken s_endToken;
+        static Token s_endToken;
     public:
-        StmtTokenIterator(stmt_token_vector_t & seq) : m_tokens(seq), m_index(0) {}
-        StmtTokenIterator(const StmtTokenIterator & other) : m_tokens(other.m_tokens), m_index(other.m_index) {}
+        TokenIterator(token_vector & seq) : m_tokens(seq), m_index(0) {}
+        TokenIterator(const TokenIterator & other) : m_tokens(other.m_tokens), m_index(other.m_index) {}
 
         size_t size() const { return m_tokens.size(); }
         bool empty() const { return size() == 0; }
         bool is_valid() const { return m_index < size(); }
 
-        StatementToken * get();
-        StatementToken * next();
-        StatementToken * match(stmt_token_type_t tokenType, const char * failure_msg=nullptr);
+        Token * get();
+        Token * next();
+        Token * match(TokenType tokenType, const char * failure_msg=nullptr);
 
-        StmtTokenIterator& operator ++ ();
+        TokenIterator& operator ++ ();
 
-        StatementToken * operator -> () { return get(); }
-        StatementToken & operator * () { return *get(); }
+        Token * operator -> () { return get(); }
+        Token & operator * () { return *get(); }
     };
 
     class ExprParser
     {
-        StmtTokenIterator & m_tok;
+        TokenIterator & m_tok;
         data_map & m_data;
     public:
-        ExprParser(StmtTokenIterator & seq, data_map & data) : m_tok(seq), m_data(data) {}
+        ExprParser(TokenIterator & seq, data_map & data) : m_tok(seq), m_data(data) {}
 
         data_ptr parse_expr();
         data_ptr parse_bterm();
@@ -104,103 +104,103 @@ namespace impl
 
 	typedef enum
 	{
-		TOKEN_TYPE_NONE,
-		TOKEN_TYPE_TEXT,
-		TOKEN_TYPE_VAR,
-		TOKEN_TYPE_IF,
-		TOKEN_TYPE_FOR,
-        TOKEN_TYPE_DEF,
-		TOKEN_TYPE_ENDIF,
-		TOKEN_TYPE_ENDFOR,
-        TOKEN_TYPE_ENDDEF
-	} TokenType;
+		NODE_TYPE_NONE,
+		NODE_TYPE_TEXT,
+		NODE_TYPE_VAR,
+		NODE_TYPE_IF,
+		NODE_TYPE_FOR,
+        NODE_TYPE_DEF,
+		NODE_TYPE_ENDIF,
+		NODE_TYPE_ENDFOR,
+        NODE_TYPE_ENDDEF
+	} NodeType;
 
-	// Template tokens
-	// base class for all token types
-	class Token
+	// Template nodes
+	// base class for all node types
+	class Node
 	{
         uint32_t m_line;
 	public:
-        Token(uint32_t line) : m_line(line) {}
-		virtual TokenType gettype() = 0 ;
+        Node(uint32_t line) : m_line(line) {}
+		virtual NodeType gettype() = 0 ;
 		virtual void gettext(std::ostream &stream, data_map &data) = 0 ;
-		virtual void set_children(token_vector &children);
-		virtual token_vector & get_children();
+		virtual void set_children(node_vector &children);
+		virtual node_vector & get_children();
         uint32_t get_line() { return m_line; }
         void set_line(uint32_t line) { m_line = line; }
 	};
 
-	// token with children
-	class TokenParent : public Token
+	// node with children
+	class NodeParent : public Node
 	{
     protected:
-		token_vector m_children ;
+		node_vector m_children ;
 	public:
-        TokenParent(uint32_t line) : Token(line) {}
-		void set_children(token_vector &children);
-		token_vector &get_children();
+        NodeParent(uint32_t line) : Node(line) {}
+		void set_children(node_vector &children);
+		node_vector &get_children();
 	};
 
 	// normal text
-	class TokenText : public Token
+	class NodeText : public Node
 	{
         std::string m_text ;
 	public:
-		TokenText(std::string text, uint32_t line=0) : Token(line), m_text(text){}
-		TokenType gettype();
+		NodeText(std::string text, uint32_t line=0) : Node(line), m_text(text){}
+		NodeType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
 
 	// variable
-	class TokenVar : public Token
+	class NodeVar : public Node
 	{
-        stmt_token_vector_t m_expr;
+        token_vector m_expr;
 	public:
-		TokenVar(stmt_token_vector_t & expr, uint32_t line=0) : Token(line), m_expr(expr) {}
-		TokenType gettype();
+		NodeVar(token_vector & expr, uint32_t line=0) : Node(line), m_expr(expr) {}
+		NodeType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
 
 	// for block
-	class TokenFor : public TokenParent
+	class NodeFor : public NodeParent
 	{
         std::string m_key ;
         std::string m_val ;
 	public:
-		TokenFor(stmt_token_vector_t & tokens, uint32_t line=0);
-		TokenType gettype();
+		NodeFor(token_vector & tokens, uint32_t line=0);
+		NodeType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
 
 	// if block
-	class TokenIf : public TokenParent
+	class NodeIf : public NodeParent
 	{
-        stmt_token_vector_t m_expr ;
+        token_vector m_expr ;
 	public:
-		TokenIf(stmt_token_vector_t & expr, uint32_t line=0) : TokenParent(line), m_expr(expr){}
-		TokenType gettype();
+		NodeIf(token_vector & expr, uint32_t line=0) : NodeParent(line), m_expr(expr){}
+		NodeType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 		bool is_true(data_map &data);
 	};
 
     // def block
-    class TokenDef : public TokenParent
+    class NodeDef : public NodeParent
     {
         std::string m_name;
-        string_vector_t m_params;
+        string_vector m_params;
 	public:
-        TokenDef(stmt_token_vector_t & expr, uint32_t line=0);
-        TokenType gettype();
+        NodeDef(token_vector & expr, uint32_t line=0);
+        NodeType gettype();
 		void gettext(std::ostream &stream, data_map &data);
     };
 
 	// end of block
-	class TokenEnd : public Token // end of control block
+	class NodeEnd : public Node // end of control block
 	{
-        TokenType m_type ;
+        NodeType m_type ;
 	public:
-		TokenEnd(TokenType endType, uint32_t line=0) : Token(line), m_type(endType) {}
-		TokenType gettype() { return m_type; }
+		NodeEnd(NodeType endType, uint32_t line=0) : Node(line), m_type(endType) {}
+		NodeType gettype() { return m_type; }
 		void gettext(std::ostream &stream, data_map &data);
 	};
 
@@ -214,15 +214,15 @@ namespace impl
     };
 
     inline bool is_key_path_char(char c);
-    inline stmt_token_type_t get_keyword_token(const std::string & s);
-    void create_id_token(stmt_token_vector_t & tokens, const std::string & s);
-    stmt_token_vector_t tokenize_statement(const std::string & text);
+    inline TokenType get_keyword_token(const std::string & s);
+    void create_id_token(token_vector & tokens, const std::string & s);
+    token_vector tokenize_statement(const std::string & text);
 
     std::string strip_comment(const std::string & text);
     inline size_t count_newlines(const std::string & text);
 
-	void parse_tree(token_vector &tokens, token_vector &tree, TokenType until=TOKEN_TYPE_NONE) ;
-	token_vector & tokenize(std::string text, token_vector &tokens) ;
+	void parse_tree(node_vector &nodes, node_vector &tree, NodeType until=NODE_TYPE_NONE) ;
+	node_vector & tokenize(std::string text, node_vector &nodes) ;
 
 }
 
@@ -348,9 +348,9 @@ namespace impl
     DataTemplate::DataTemplate(const std::string & templateText)
     {
         // Parse the template
-		impl::token_vector tokens ;
-		impl::tokenize(templateText, tokens) ;
-		impl::parse_tree(tokens, m_tree) ;
+		impl::node_vector nodes ;
+		impl::tokenize(templateText, nodes) ;
+		impl::parse_tree(nodes, m_tree) ;
     }
 
     std::string DataTemplate::getvalue()
@@ -444,9 +444,9 @@ namespace impl
 namespace impl
 {
 
-    StatementToken StmtTokenIterator::s_endToken(END_TOKEN);
+    Token TokenIterator::s_endToken(END_TOKEN);
 
-    StatementToken * StmtTokenIterator::get()
+    Token * TokenIterator::get()
     {
         if (is_valid())
         {
@@ -458,7 +458,7 @@ namespace impl
         }
     }
 
-    StatementToken * StmtTokenIterator::next()
+    Token * TokenIterator::next()
     {
         if (m_index < size())
         {
@@ -467,9 +467,9 @@ namespace impl
         return get();
     }
 
-    StatementToken * StmtTokenIterator::match(stmt_token_type_t tokenType, const char * failure_msg)
+    Token * TokenIterator::match(TokenType tokenType, const char * failure_msg)
     {
-        StatementToken * result = get();
+        Token * result = get();
         if (result->get_type() != tokenType)
         {
             throw TemplateException(failure_msg ? failure_msg : "unexpected token");
@@ -478,7 +478,7 @@ namespace impl
         return result;
     }
 
-    StmtTokenIterator& StmtTokenIterator::operator ++ ()
+    TokenIterator& TokenIterator::operator ++ ()
     {
         if (m_index < size())
         {
@@ -492,7 +492,7 @@ namespace impl
         return (isalnum(c) || c == '.' || c == '_');
     }
 
-    inline stmt_token_type_t get_keyword_token(const std::string & s)
+    inline TokenType get_keyword_token(const std::string & s)
     {
         if (s == "for")
         {
@@ -540,9 +540,9 @@ namespace impl
         }
     }
 
-    void create_id_token(stmt_token_vector_t & tokens, const std::string & s)
+    void create_id_token(token_vector & tokens, const std::string & s)
     {
-        stmt_token_type_t t = get_keyword_token(s);
+        TokenType t = get_keyword_token(s);
         if (t == INVALID_TOKEN)
         {
             // Create key path token.
@@ -554,9 +554,9 @@ namespace impl
         }
     }
 
-    stmt_token_vector_t tokenize_statement(const std::string & text)
+    token_vector tokenize_statement(const std::string & text)
     {
-        stmt_token_vector_t tokens;
+        token_vector tokens;
         param_lexer_state_t state=INIT_STATE;
         int i=0;
         uint32_t pos=0;
@@ -582,7 +582,7 @@ namespace impl
                     }
                     else if (c == '(' || c == ')' || c == ',')
                     {
-                        tokens.emplace_back(static_cast<stmt_token_type_t>(c));
+                        tokens.emplace_back(static_cast<TokenType>(c));
                     }
                     else if (c == '\"' || c == '\'')
                     {
@@ -680,7 +680,7 @@ namespace impl
         return tokens;
     }
 
-    void print_tokens(const stmt_token_vector_t & tokens)
+    void print_tokens(const token_vector & tokens)
     {
         printf("tokens:\n");
         for (auto it : tokens)
@@ -758,7 +758,7 @@ namespace impl
 
     data_ptr ExprParser::parse_var()
     {
-        StatementToken * path = m_tok.match(KEY_PATH_TOKEN);
+        Token * path = m_tok.match(KEY_PATH_TOKEN);
 
         std::vector<data_ptr> params;
         if (m_tok.get()->get_type() == OPEN_PAREN_TOKEN)
@@ -786,7 +786,7 @@ namespace impl
 
     data_ptr ExprParser::parse_factor()
     {
-        stmt_token_type_t tokType = m_tok->get_type();
+        TokenType tokType = m_tok->get_type();
         data_ptr result;
         if (tokType == NOT_TOKEN)
         {
@@ -814,7 +814,7 @@ namespace impl
     {
         data_ptr ldata = parse_factor();
 
-        stmt_token_type_t tokType = m_tok->get_type();
+        TokenType tokType = m_tok->get_type();
         if (tokType == EQ_TOKEN || tokType == NEQ_TOKEN)
         {
             m_tok.next();
@@ -870,42 +870,42 @@ namespace impl
     }
 
 	//////////////////////////////////////////////////////////////////////////
-	// Token classes
+	// Node classes
 	//////////////////////////////////////////////////////////////////////////
 
 	// defaults, overridden by subclasses with children
-	void Token::set_children( token_vector & )
+	void Node::set_children( node_vector & )
 	{
-		throw TemplateException(get_line(), "This token type cannot have children") ;
+		throw TemplateException(get_line(), "This node type cannot have children") ;
 	}
 
-	token_vector & Token::get_children()
+	node_vector & Node::get_children()
 	{
-		throw TemplateException(get_line(), "This token type cannot have children") ;
+		throw TemplateException(get_line(), "This node type cannot have children") ;
 	}
 
-	// TokenText
-	TokenType TokenText::gettype()
+	// NodeText
+	NodeType NodeText::gettype()
 	{
-		return TOKEN_TYPE_TEXT ;
+		return NODE_TYPE_TEXT ;
 	}
 
-	void TokenText::gettext( std::ostream &stream, data_map & )
+	void NodeText::gettext( std::ostream &stream, data_map & )
 	{
 		stream << m_text ;
 	}
 
-	// TokenVar
-	TokenType TokenVar::gettype()
+	// NodeVar
+	NodeType NodeVar::gettype()
 	{
-		return TOKEN_TYPE_VAR ;
+		return NODE_TYPE_VAR ;
 	}
 
-	void TokenVar::gettext( std::ostream &stream, data_map &data )
+	void NodeVar::gettext( std::ostream &stream, data_map &data )
 	{
         try
         {
-            StmtTokenIterator it(m_expr);
+            TokenIterator it(m_expr);
             ExprParser expr(it, data);
             data_ptr result = expr.parse_expr();
             stream << result->getvalue() ;
@@ -917,24 +917,24 @@ namespace impl
         }
 	}
 
-	// TokenVar
-	void TokenParent::set_children( token_vector &children )
+	// NodeVar
+	void NodeParent::set_children( node_vector &children )
 	{
 		m_children.assign(children.begin(), children.end()) ;
 	}
 
-	token_vector & TokenParent::get_children()
+	node_vector & NodeParent::get_children()
 	{
 		return m_children;
 	}
 
-	// TokenFor
-	TokenFor::TokenFor(stmt_token_vector_t & tokens, uint32_t line)
-    :   TokenParent(line)
+	// NodeFor
+	NodeFor::NodeFor(token_vector & tokens, uint32_t line)
+    :   NodeParent(line)
 	{
         try
         {
-            StmtTokenIterator tok(tokens);
+            TokenIterator tok(tokens);
             tok.match(FOR_TOKEN);
             m_val = tok.match(KEY_PATH_TOKEN)->get_value();
             tok.match(IN_TOKEN);
@@ -948,12 +948,12 @@ namespace impl
         }
 	}
 
-	TokenType TokenFor::gettype()
+	NodeType NodeFor::gettype()
 	{
-		return TOKEN_TYPE_FOR ;
+		return NODE_TYPE_FOR ;
 	}
 
-	void TokenFor::gettext( std::ostream &stream, data_map &data )
+	void NodeFor::gettext( std::ostream &stream, data_map &data )
 	{
         try
         {
@@ -981,13 +981,13 @@ namespace impl
         }
 	}
 
-	// TokenIf
-	TokenType TokenIf::gettype()
+	// NodeIf
+	NodeType NodeIf::gettype()
 	{
-		return TOKEN_TYPE_IF ;
+		return NODE_TYPE_IF ;
 	}
 
-	void TokenIf::gettext( std::ostream &stream, data_map &data )
+	void NodeIf::gettext( std::ostream &stream, data_map &data )
 	{
 		if (is_true(data))
 		{
@@ -998,11 +998,11 @@ namespace impl
 		}
 	}
 
-	bool TokenIf::is_true( data_map &data )
+	bool NodeIf::is_true( data_map &data )
 	{
         try
         {
-            StmtTokenIterator it(m_expr);
+            TokenIterator it(m_expr);
             it.match(IF_TOKEN);
             ExprParser parser(it, data);
             data_ptr d = parser.parse_expr();
@@ -1017,13 +1017,13 @@ namespace impl
         }
 	}
 
-	// TokenDef
-    TokenDef::TokenDef(stmt_token_vector_t & expr, uint32_t line)
-    :   TokenParent(line)
+	// NodeDef
+    NodeDef::NodeDef(token_vector & expr, uint32_t line)
+    :   NodeParent(line)
     {
         try
         {
-            StmtTokenIterator tok(expr);
+            TokenIterator tok(expr);
             tok.match(DEF_TOKEN);
 
             m_name = tok.match(KEY_PATH_TOKEN)->get_value();
@@ -1052,19 +1052,19 @@ namespace impl
         }
     }
 
-	TokenType TokenDef::gettype()
+	NodeType NodeDef::gettype()
 	{
-		return TOKEN_TYPE_DEF ;
+		return NODE_TYPE_DEF ;
 	}
 
-	void TokenDef::gettext( std::ostream &stream, data_map &data )
+	void NodeDef::gettext( std::ostream &stream, data_map &data )
 	{
         try
         {
             // Follow the key path.
             data_ptr& target = data.parse_path(m_name, true);
 
-            // Set the map entry's value to a template. The tokens were already
+            // Set the map entry's value to a template. The nodes were already
             // parsed and set as our m_children vector.
             target = data_ptr(new DataTemplate(m_children));
         }
@@ -1074,46 +1074,46 @@ namespace impl
         }
 	}
 
-	void TokenEnd::gettext( std::ostream &, data_map &)
+	void NodeEnd::gettext( std::ostream &, data_map &)
 	{
 		throw TemplateException(get_line(), "End-of-control statements have no associated text") ;
 	}
 
 	//////////////////////////////////////////////////////////////////////////
 	// parse_tree
-	// recursively parses list of tokens into a tree
+	// recursively parses list of nodes into a tree
 	//////////////////////////////////////////////////////////////////////////
-	void parse_tree(token_vector &tokens, token_vector &tree, TokenType until)
+	void parse_tree(node_vector &nodes, node_vector &tree, NodeType until)
 	{
-		while(! tokens.empty())
+		while(! nodes.empty())
 		{
 			// 'pops' first item off list
-			token_ptr token = tokens[0] ;
-			tokens.erase(tokens.begin()) ;
+			node_ptr node = nodes[0] ;
+			nodes.erase(nodes.begin()) ;
 
-			if (token->gettype() == TOKEN_TYPE_FOR)
+			if (node->gettype() == NODE_TYPE_FOR)
 			{
-				token_vector children ;
-				parse_tree(tokens, children, TOKEN_TYPE_ENDFOR) ;
-				token->set_children(children) ;
+				node_vector children ;
+				parse_tree(nodes, children, NODE_TYPE_ENDFOR) ;
+				node->set_children(children) ;
 			}
-			else if (token->gettype() == TOKEN_TYPE_IF)
+			else if (node->gettype() == NODE_TYPE_IF)
 			{
-				token_vector children ;
-				parse_tree(tokens, children, TOKEN_TYPE_ENDIF) ;
-				token->set_children(children) ;
+				node_vector children ;
+				parse_tree(nodes, children, NODE_TYPE_ENDIF) ;
+				node->set_children(children) ;
 			}
-			else if (token->gettype() == TOKEN_TYPE_DEF)
+			else if (node->gettype() == NODE_TYPE_DEF)
 			{
-				token_vector children ;
-				parse_tree(tokens, children, TOKEN_TYPE_ENDDEF) ;
-				token->set_children(children) ;
+				node_vector children ;
+				parse_tree(nodes, children, NODE_TYPE_ENDDEF) ;
+				node->set_children(children) ;
 			}
-			else if (token->gettype() == until)
+			else if (node->gettype() == until)
 			{
 				return ;
 			}
-			tree.push_back(token) ;
+			tree.push_back(node) ;
 		}
 	}
 
@@ -1135,9 +1135,9 @@ namespace impl
 
 	//////////////////////////////////////////////////////////////////////////
 	// tokenize
-	// parses a template into tokens (text, for, if, variable)
+	// parses a template into nodes (text, for, if, variable, def)
 	//////////////////////////////////////////////////////////////////////////
-	token_vector & tokenize(std::string text, token_vector &tokens)
+	node_vector & tokenize(std::string text, node_vector &nodes)
 	{
         bool eolPrecedes = true;
         bool lastWasEol = true;
@@ -1149,15 +1149,15 @@ namespace impl
 			{
 				if (! text.empty())
 				{
-					tokens.push_back(token_ptr(new TokenText(text, currentLine))) ;
+					nodes.push_back(node_ptr(new NodeText(text, currentLine))) ;
 				}
-				return tokens ;
+				return nodes ;
 			}
             std::string pre_text = text.substr(0, pos) ;
             currentLine += count_newlines(pre_text) ;
 			if (! pre_text.empty())
 			{
-				tokens.push_back(token_ptr(new TokenText(pre_text, currentLine))) ;
+				nodes.push_back(node_ptr(new NodeText(pre_text, currentLine))) ;
 			}
 
             // Track whether there was an EOL prior to this open brace.
@@ -1171,8 +1171,8 @@ namespace impl
 			text = text.substr(pos+1) ;
 			if (text.empty())
 			{
-				tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
-				return tokens ;
+				nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
+				return nodes ;
 			}
 
 			// variable
@@ -1183,13 +1183,13 @@ namespace impl
 				{
                     pre_text = text.substr(1, pos-1);
 
-                    stmt_token_vector_t stmt_tokens = tokenize_statement(pre_text);
+                    token_vector stmt_tokens = tokenize_statement(pre_text);
 //                    if (stmt_tokens.empty() || stmt_tokens[0].get_type() != KEY_PATH_TOKEN)
 //                    {
 //                        throw TemplateException(currentLine, "expected variable name");
 //                    }
 
-					tokens.push_back(token_ptr (new TokenVar(stmt_tokens, currentLine))) ;
+					nodes.push_back(node_ptr (new NodeVar(stmt_tokens, currentLine))) ;
 
 					text = text.substr(pos+1) ;
 				}
@@ -1219,33 +1219,33 @@ namespace impl
 
                     text = text.substr(pos+1) ;
 
-                    stmt_token_vector_t stmt_tokens = tokenize_statement(expression);
+                    token_vector stmt_tokens = tokenize_statement(expression);
 
-                    // Create control statement tokens.
-                    const StatementToken & keyword = stmt_tokens[0];
+                    // Create control statement nodes.
+                    const Token & keyword = stmt_tokens[0];
 					if (keyword.get_type() == FOR_TOKEN)
                     {
-						tokens.push_back(token_ptr (new TokenFor(stmt_tokens, savedLine))) ;
+						nodes.push_back(node_ptr (new NodeFor(stmt_tokens, savedLine))) ;
 					}
 					else if (keyword.get_type() == IF_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenIf(stmt_tokens, savedLine))) ;
+						nodes.push_back(node_ptr (new NodeIf(stmt_tokens, savedLine))) ;
 					}
 					else if (keyword.get_type() == DEF_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenDef(stmt_tokens, savedLine))) ;
+						nodes.push_back(node_ptr (new NodeDef(stmt_tokens, savedLine))) ;
 					}
 					else if (keyword.get_type() == ENDFOR_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenEnd(TOKEN_TYPE_ENDFOR, savedLine))) ;
+						nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDFOR, savedLine))) ;
 					}
 					else if (keyword.get_type() == ENDIF_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenEnd(TOKEN_TYPE_ENDIF, savedLine))) ;
+						nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDIF, savedLine))) ;
 					}
 					else if (keyword.get_type() == ENDDEF_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenEnd(TOKEN_TYPE_ENDDEF, savedLine))) ;
+						nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDDEF, savedLine))) ;
 					}
                     else
                     {
@@ -1277,10 +1277,10 @@ namespace impl
             }
 			else
 			{
-				tokens.push_back(token_ptr(new TokenText("{", currentLine))) ;
+				nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
 			}
 		}
-		return tokens ;
+		return nodes ;
 	}
 
 } // namespace impl
@@ -1301,10 +1301,10 @@ namespace impl
 	}
 	void parse(std::ostream &stream, std::string templ_text, data_map &data)
 	{
-		impl::token_vector tokens ;
-		impl::tokenize(templ_text, tokens) ;
-		impl::token_vector tree ;
-		impl::parse_tree(tokens, tree) ;
+		impl::node_vector nodes ;
+		impl::tokenize(templ_text, nodes) ;
+		impl::node_vector tree ;
+		impl::parse_tree(nodes, tree) ;
 
 		for (size_t i = 0 ; i < tree.size() ; ++i)
 		{
