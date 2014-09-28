@@ -280,7 +280,7 @@ namespace cpptempl
 			return ptr.get();
 		}
         std::shared_ptr<Data> get() { return ptr; }
-        bool isTemplate() const;
+        bool is_template() const;
 	private:
 		std::shared_ptr<Data> ptr;
 	};
@@ -384,9 +384,13 @@ namespace impl {
 
 } // namespace impl
 
+    // List of param names.
+    typedef std::vector<std::string> string_vector_t;
+
     class DataTemplate : public Data
     {
         impl::token_vector m_tree;
+        string_vector_t m_params;
     public:
 		DataTemplate(const std::string & templateText);
 		DataTemplate(const impl::token_vector &tree) : m_tree(tree) {}
@@ -394,6 +398,7 @@ namespace impl {
 		virtual std::string getvalue();
 		virtual bool empty();
 		std::string parse(data_map & data);
+        string_vector_t & params();
     };
 
 	// The big daddy. Pass in the template and data,

@@ -14,6 +14,93 @@ namespace cpptempl
 
 namespace impl
 {
+    // Types of tokens in control statements.
+    enum stmt_token_type_t
+    {
+        INVALID_TOKEN,
+        KEY_PATH_TOKEN,
+        FOR_TOKEN,
+        IN_TOKEN,
+        IF_TOKEN,
+        DEF_TOKEN,
+        ENDFOR_TOKEN,
+        ENDIF_TOKEN,
+        ENDDEF_TOKEN,
+        NOT_TOKEN,
+        EQ_TOKEN,
+        NEQ_TOKEN,
+        AND_TOKEN,
+        OR_TOKEN,
+        STRING_LITERAL_TOKEN,
+        OPEN_PAREN_TOKEN = '(',
+        CLOSE_PAREN_TOKEN = ')',
+        COMMA_TOKEN = ',',
+        END_TOKEN = 255
+    };
+
+    // Represents a token in a control statement.
+    class StatementToken
+    {
+        stmt_token_type_t m_type;
+        std::string m_value;
+    public:
+        StatementToken(stmt_token_type_t tokenType) : m_type(tokenType), m_value() {}
+        StatementToken(stmt_token_type_t tokenType, const std::string & value) : m_type(tokenType), m_value(value) {}
+        StatementToken(const StatementToken & other) : m_type(other.m_type), m_value(other.m_value) {}
+        StatementToken(StatementToken && other) : m_type(other.m_type), m_value(std::move(other.m_value)) {}
+        StatementToken& operator=(const StatementToken & other)=default;
+        StatementToken& operator=(StatementToken && other)
+        {
+            m_type = other.m_type;
+            m_value.assign(std::move(other.m_value));
+            return *this;
+        }
+        ~StatementToken()=default;
+
+        stmt_token_type_t get_type() const { return m_type; }
+        const std::string & get_value() const { return m_value; }
+    };
+
+    typedef std::vector<StatementToken> stmt_token_vector_t;
+
+    // Helper class for parsing tokens.
+    class StmtTokenIterator
+    {
+        stmt_token_vector_t & m_tokens;
+        size_t m_index;
+        static StatementToken s_endToken;
+    public:
+        StmtTokenIterator(stmt_token_vector_t & seq) : m_tokens(seq), m_index(0) {}
+        StmtTokenIterator(const StmtTokenIterator & other) : m_tokens(other.m_tokens), m_index(other.m_index) {}
+
+        size_t size() const { return m_tokens.size(); }
+        bool empty() const { return size() == 0; }
+        bool is_valid() const { return m_index < size(); }
+
+        StatementToken * get();
+        StatementToken * next();
+        StatementToken * match(stmt_token_type_t tokenType, const char * failure_msg=nullptr);
+
+        StmtTokenIterator& operator ++ ();
+
+        StatementToken * operator -> () { return get(); }
+        StatementToken & operator * () { return *get(); }
+    };
+
+    class ExprParser
+    {
+        StmtTokenIterator & m_tok;
+        data_map & m_data;
+    public:
+        ExprParser(StmtTokenIterator & seq, data_map & data) : m_tok(seq), m_data(data) {}
+
+        data_ptr parse_expr();
+        data_ptr parse_bterm();
+        data_ptr parse_bfactor();
+        data_ptr parse_factor();
+        data_ptr parse_var();
+        data_ptr get_var_value(const std::string & path, std::vector<data_ptr> & params);
+    };
 
 	typedef enum
 	{
@@ -67,9 +154,9 @@ namespace impl
 	// variable
 	class TokenVar : public Token
 	{
-        std::string m_key ;
+        stmt_token_vector_t m_expr;
 	public:
-		TokenVar(std::string key, uint32_t line=0) : Token(line), m_key(key){}
+		TokenVar(stmt_token_vector_t & expr, uint32_t line=0) : Token(line), m_expr(expr) {}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
@@ -80,7 +167,7 @@ namespace impl
         std::string m_key ;
         std::string m_val ;
 	public:
-		TokenFor(std::string expr, uint32_t line=0);
+		TokenFor(stmt_token_vector_t & tokens, uint32_t line=0);
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
 	};
@@ -88,20 +175,21 @@ namespace impl
 	// if block
 	class TokenIf : public TokenParent
 	{
-        std::string m_expr ;
+        stmt_token_vector_t m_expr ;
 	public:
-		TokenIf(std::string expr, uint32_t line=0) : TokenParent(line), m_expr(expr){}
+		TokenIf(stmt_token_vector_t & expr, uint32_t line=0) : TokenParent(line), m_expr(expr){}
 		TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
-		bool is_true(std::string expr, data_map &data);
+		bool is_true(data_map &data);
 	};
 
     // def block
     class TokenDef : public TokenParent
     {
         std::string m_name;
+        string_vector_t m_params;
 	public:
-        TokenDef(std::string name, uint32_t line=0);
+        TokenDef(stmt_token_vector_t & expr, uint32_t line=0);
         TokenType gettype();
 		void gettext(std::ostream &stream, data_map &data);
     };
@@ -111,22 +199,30 @@ namespace impl
 	{
         TokenType m_type ;
 	public:
-		TokenEnd(std::string text, uint32_t line=0);
+		TokenEnd(TokenType endType, uint32_t line=0) : Token(line), m_type(endType) {}
 		TokenType gettype() { return m_type; }
 		void gettext(std::ostream &stream, data_map &data);
 	};
 
-    std::string gettext(token_ptr token, data_map &data) ;
+    // Lexer states for statement tokenizer.
+    enum param_lexer_state_t
+    {
+        INIT_STATE,             //!< Initial state, skip whitespace, process single char tokens.
+        KEY_PATH_STATE,         //!< Scan a key path.
+        STRING_LITERAL_STATE,   //!< Scan a string literal.
+        OPERATOR_STATE,         //!< Scan an operator.
+    };
 
-	void parse_tree(token_vector &tokens, token_vector &tree, TokenType until=TOKEN_TYPE_NONE) ;
-	token_vector & tokenize(std::string text, token_vector &tokens) ;
-
-	// get a data value from a data map
-	// e.g. foo.bar => data["foo"]["bar"]
-	data_ptr parse_val(std::string key, data_map &data) ;
+    inline bool is_key_path_char(char c);
+    inline stmt_token_type_t get_keyword_token(const std::string & s);
+    void create_id_token(stmt_token_vector_t & tokens, const std::string & s);
+    stmt_token_vector_t tokenize_statement(const std::string & text);
 
     std::string strip_comment(const std::string & text);
     inline size_t count_newlines(const std::string & text);
+
+	void parse_tree(token_vector &tokens, token_vector &tree, TokenType until=TOKEN_TYPE_NONE) ;
+	token_vector & tokenize(std::string text, token_vector &tokens) ;
 
 }
 
@@ -282,7 +378,7 @@ namespace impl
 		return stream.str() ;
     }
 
-    bool data_ptr::isTemplate() const
+    bool data_ptr::is_template() const
     {
         return (dynamic_cast<DataTemplate*>(ptr.get()) != nullptr);
     }
@@ -310,7 +406,7 @@ namespace impl
     }
 
 	//////////////////////////////////////////////////////////////////////////
-	// parse_val
+	// parse_path
 	//////////////////////////////////////////////////////////////////////////
 	data_ptr& data_map::parse_path(const std::string & key, bool create)
 	{
@@ -327,6 +423,7 @@ namespace impl
 			{
                 if (!create)
                 {
+                    printf("invalid map key: %s\n", key.c_str());
                     throw key_error("invalid map key");
                 }
                 data[key] = make_data("");
@@ -337,6 +434,7 @@ namespace impl
         std::string sub_key = key.substr(0, index) ;
 		if (!has(sub_key))
 		{
+            printf("invalid map key: %s\n", sub_key.c_str());
 			throw key_error("invalid map key");
 		}
 
@@ -346,68 +444,430 @@ namespace impl
 namespace impl
 {
 
-	data_ptr parse_val(std::string key, data_map &data)
-	{
-		// quoted string
-		if (key[0] == '\"')
-		{
-			return make_data(boost::trim_copy_if(key, boost::is_any_of("\""))) ;
-		}
+    StatementToken StmtTokenIterator::s_endToken(END_TOKEN);
 
-        // handle functions
-        std::string fn;
-        size_t index = key.find("(");
-        if (index != std::string::npos)
+    StatementToken * StmtTokenIterator::get()
+    {
+        if (is_valid())
         {
-            // Make sure there is a closing parenthesis at the end.
-            if (key[key.size()-1] != ')')
-            {
-                throw TemplateException("Missing close parenthesis");
-            }
+            return &m_tokens[m_index];
+        }
+        else
+        {
+            return &s_endToken;
+        }
+    }
 
-            fn = key.substr(0, index);
-            key = key.substr(index + 1, key.size() - index - 2);
+    StatementToken * StmtTokenIterator::next()
+    {
+        if (m_index < size())
+        {
+            ++m_index;
+        }
+        return get();
+    }
+
+    StatementToken * StmtTokenIterator::match(stmt_token_type_t tokenType, const char * failure_msg)
+    {
+        StatementToken * result = get();
+        if (result->get_type() != tokenType)
+        {
+            throw TemplateException(failure_msg ? failure_msg : "unexpected token");
+        }
+        next();
+        return result;
+    }
+
+    StmtTokenIterator& StmtTokenIterator::operator ++ ()
+    {
+        if (m_index < size())
+        {
+            ++m_index;
+        }
+        return *this;
+    }
+
+    inline bool is_key_path_char(char c)
+    {
+        return (isalnum(c) || c == '.' || c == '_');
+    }
+
+    inline stmt_token_type_t get_keyword_token(const std::string & s)
+    {
+        if (s == "for")
+        {
+            return FOR_TOKEN;
+        }
+        else if (s == "in")
+        {
+            return IN_TOKEN;
+        }
+        else if (s == "if")
+        {
+            return IF_TOKEN;
+        }
+        else if (s == "def")
+        {
+            return DEF_TOKEN;
+        }
+        else if (s == "endfor")
+        {
+            return ENDFOR_TOKEN;
+        }
+        else if (s == "endif")
+        {
+            return ENDIF_TOKEN;
+        }
+        else if (s == "enddef")
+        {
+            return ENDDEF_TOKEN;
+        }
+        else if (s == "not")
+        {
+            return NOT_TOKEN;
+        }
+        else if (s == "and")
+        {
+            return AND_TOKEN;
+        }
+        else if (s == "or")
+        {
+            return OR_TOKEN;
+        }
+        else
+        {
+            return INVALID_TOKEN;
+        }
+    }
+
+    void create_id_token(stmt_token_vector_t & tokens, const std::string & s)
+    {
+        stmt_token_type_t t = get_keyword_token(s);
+        if (t == INVALID_TOKEN)
+        {
+            // Create key path token.
+            tokens.emplace_back(KEY_PATH_TOKEN, s);
+        }
+        else
+        {
+            tokens.emplace_back(t);
+        }
+    }
+
+    stmt_token_vector_t tokenize_statement(const std::string & text)
+    {
+        stmt_token_vector_t tokens;
+        param_lexer_state_t state=INIT_STATE;
+        int i=0;
+        uint32_t pos=0;
+        char str_open_quote=0;
+        char first_op_char=0;
+
+        for (; i < text.size(); ++i)
+        {
+            char c = text[i];
+
+            switch (state)
+            {
+                case INIT_STATE:
+                    // Skip any whitespace
+                    if (isspace(c))
+                    {
+                        continue;
+                    }
+                    else if (is_key_path_char(c))
+                    {
+                        pos = i;
+                        state = KEY_PATH_STATE;
+                    }
+                    else if (c == '(' || c == ')' || c == ',')
+                    {
+                        tokens.emplace_back(static_cast<stmt_token_type_t>(c));
+                    }
+                    else if (c == '\"' || c == '\'')
+                    {
+                        // Set the start pos to after the open quote.
+                        pos = i + 1;
+                        str_open_quote = c;
+                        state = STRING_LITERAL_STATE;
+                    }
+                    else if (c == '=' || c == '!')
+                    {
+                        first_op_char = c;
+                        state = OPERATOR_STATE;
+                    }
+                    else
+                    {
+                        throw TemplateException("unexpected character");
+                    }
+                    break;
+
+                case KEY_PATH_STATE:
+                    if (is_key_path_char(c))
+                    {
+                        continue;
+                    }
+                    else
+                    {
+                        create_id_token(tokens, text.substr(pos, i-pos));
+
+                        // Reprocess this char in the initial state.
+                        state = INIT_STATE;
+                        --i;
+                    }
+                    break;
+
+                case STRING_LITERAL_STATE:
+                    if (c == str_open_quote)
+                    {
+                        // Create the string literal token and return to init state.
+                        std::string x = text.substr(pos, i-pos);
+                        tokens.emplace_back(STRING_LITERAL_TOKEN, x);
+                        state = INIT_STATE;
+                    }
+                    else if (c == '\\')
+                    {
+                        // TODO: handle string literal escapes
+                    }
+                    break;
+
+                case OPERATOR_STATE:
+                    switch (first_op_char)
+                    {
+                        case '=':
+                            switch (c)
+                            {
+                                case '=':
+                                    tokens.emplace_back(EQ_TOKEN);
+                                    break;
+                                default:
+                                    // Reprocess this char in the initial state.
+                                    state = INIT_STATE;
+                                    --i;
+                                    break;
+                            }
+                            break;
+                        case '!':
+                            switch (c)
+                            {
+                                case '=':
+                                    tokens.emplace_back(NEQ_TOKEN);
+                                    break;
+                                default:
+                                    // Reprocess this char in the initial state.
+                                    state = INIT_STATE;
+                                    --i;
+                                    break;
+                            }
+                            break;
+                        default:
+                            throw TemplateException("unexpected first op char");
+                    }
+                    break;
+            }
         }
 
-        // parse path and get resulting data object
+        // Handle a key path terminated by end of string.
+        if (state == KEY_PATH_STATE)
+        {
+            create_id_token(tokens, text.substr(pos, i-pos));
+        }
+        else if (state == STRING_LITERAL_STATE)
+        {
+            throw TemplateException("unterminated string literal");
+        }
+
+        return tokens;
+    }
+
+    void print_tokens(const stmt_token_vector_t & tokens)
+    {
+        printf("tokens:\n");
+        for (auto it : tokens)
+        {
+            printf("%d : %s\n", it.get_type(), it.get_value().c_str());
+        }
+        printf("--\n");
+    }
+
+    // Expression grammar
+    //
+    // expr         ::= bterm ( "or" bterm )*
+    // bterm        ::= bfactor ( "and" bfactor )*
+    // bfactor      ::= factor [ ( "==" | "!=" ) factor ]
+    // factor       ::= "not" expr
+    //              |   "(" expr ")"
+    //              |   ( "true" | "false" )
+    //              |   var
+    // var          ::= KEY_PATH [ args ]
+    // args         ::= "(" [ expr ( "," expr )* ")"
+
+    data_ptr ExprParser::get_var_value(const std::string & path, std::vector<data_ptr> & params)
+    {
+        // Check if this is a pseudo function.
+        bool is_fn = false;
+        if (path == "count" || path == "empty" || path == "defined")
+        {
+            is_fn = true;
+        }
+
         try
         {
-            data_ptr result = data.parse_path(key);
+            data_ptr result;
+            if (is_fn)
+            {
+                if (params.size() != 1)
+                {
+                    throw TemplateException("function " + path + " requires 1 parameter");
+                }
 
-            // evaluate function
-            if (fn == "empty")
-            {
-                result = result->getlist().empty();
+                if (path == "count")
+                {
+                    result = params[0]->getlist().size();
+                }
+                else if (path == "empty")
+                {
+                    result = params[0]->getlist().empty();
+                }
+                else if (path == "defined")
+                {
+                    // TODO: handle undefined case for defined fn
+                    result = true;
+                }
             }
-            else if (fn == "count")
+            else
             {
-                result = result->getlist().size();
-            }
-            else if (fn == "defined")
-            {
-                result = true;
-            }
-            // Template have to be handled specially since they need the data map.
-            else if (fn.empty() && result.isTemplate())
-            {
-                std::shared_ptr<Data> tmplData = result.get();
-                DataTemplate * tmpl = dynamic_cast<DataTemplate*>(tmplData.get());
-                return make_data(tmpl->parse(data));
+                result = m_data.parse_path(path);
+
+                // Handle subtemplates.
+                if (result.is_template())
+                {
+                    std::shared_ptr<Data> tmplData = result.get();
+                    DataTemplate * tmpl = dynamic_cast<DataTemplate*>(tmplData.get());
+                    result = make_data(tmpl->parse(m_data));
+                }
             }
 
             return result;
         }
         catch (data_map::key_error & e)
         {
-            // Check if we got the error inside a defined() fn.
-            if (fn == "defined")
-            {
-                return data_ptr(false);
-            }
-
-            return make_data("{$" + key + "}") ;
+            return make_data("{$" + path + "}");
         }
-	}
+    }
+
+    data_ptr ExprParser::parse_var()
+    {
+        StatementToken * path = m_tok.match(KEY_PATH_TOKEN);
+
+        std::vector<data_ptr> params;
+        if (m_tok.get()->get_type() == OPEN_PAREN_TOKEN)
+        {
+            m_tok.match(OPEN_PAREN_TOKEN);
+
+            while (true)
+            {
+                params.push_back(parse_expr());
+
+                if (m_tok.get()->get_type() == CLOSE_PAREN_TOKEN)
+                {
+                    m_tok.match(CLOSE_PAREN_TOKEN);
+                    break;
+                }
+                else
+                {
+                    m_tok.match(COMMA_TOKEN);
+                }
+            }
+        }
+
+        return get_var_value(path->get_value(), params);
+    }
+
+    data_ptr ExprParser::parse_factor()
+    {
+        stmt_token_type_t tokType = m_tok->get_type();
+        data_ptr result;
+        if (tokType == NOT_TOKEN)
+        {
+            m_tok.next();
+            result = !parse_expr()->empty();
+        }
+        else if (tokType == OPEN_PAREN_TOKEN)
+        {
+            m_tok.next();
+            result = parse_expr();
+            m_tok.match(CLOSE_PAREN_TOKEN);
+        }
+        else if (tokType == KEY_PATH_TOKEN)
+        {
+            result = parse_var();
+        }
+        else if (tokType == STRING_LITERAL_TOKEN)
+        {
+            result = m_tok.match(STRING_LITERAL_TOKEN)->get_value();
+        }
+        return result;
+    }
+
+    data_ptr ExprParser::parse_bfactor()
+    {
+        data_ptr ldata = parse_factor();
+
+        stmt_token_type_t tokType = m_tok->get_type();
+        if (tokType == EQ_TOKEN || tokType == NEQ_TOKEN)
+        {
+            m_tok.next();
+
+            data_ptr rdata = parse_factor();
+
+            std::string lhs = ldata->getvalue();
+            std::string rhs = rdata->getvalue();
+            switch (tokType)
+            {
+                case EQ_TOKEN:
+                    ldata = (lhs == rhs);
+                    break;
+                case NEQ_TOKEN:
+                    ldata = (lhs != rhs);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return ldata;
+    }
+
+    data_ptr ExprParser::parse_bterm()
+    {
+        data_ptr ldata = parse_bfactor();
+
+        while (m_tok->get_type() == AND_TOKEN)
+        {
+            m_tok.match(AND_TOKEN);
+
+            data_ptr rdata = parse_bfactor();
+
+            ldata = (!ldata->empty() && !rdata->empty());
+        }
+        return ldata;
+    }
+
+    data_ptr ExprParser::parse_expr()
+    {
+        data_ptr ldata = parse_bterm();
+
+        while (m_tok->get_type() == OR_TOKEN)
+        {
+            m_tok.match(OR_TOKEN);
+
+            data_ptr rdata = parse_bterm();
+
+            ldata = (!ldata->empty() || !rdata->empty());
+        }
+
+        return ldata;
+    }
 
 	//////////////////////////////////////////////////////////////////////////
 	// Token classes
@@ -445,7 +905,10 @@ namespace impl
 	{
         try
         {
-            stream << parse_val(m_key, data)->getvalue() ;
+            StmtTokenIterator it(m_expr);
+            ExprParser expr(it, data);
+            data_ptr result = expr.parse_expr();
+            stream << result->getvalue() ;
         }
         catch (TemplateException e)
         {
@@ -466,17 +929,23 @@ namespace impl
 	}
 
 	// TokenFor
-	TokenFor::TokenFor(std::string expr, uint32_t line)
+	TokenFor::TokenFor(stmt_token_vector_t & tokens, uint32_t line)
     :   TokenParent(line)
 	{
-		std::vector<std::string> elements ;
-		boost::split(elements, expr, boost::is_space()) ;
-		if (elements.size() != 4u)
-		{
-			throw TemplateException(get_line(), "Invalid syntax in for statement") ;
-		}
-		m_val = elements[1] ;
-		m_key = elements[3] ;
+        try
+        {
+            StmtTokenIterator tok(tokens);
+            tok.match(FOR_TOKEN);
+            m_val = tok.match(KEY_PATH_TOKEN)->get_value();
+            tok.match(IN_TOKEN);
+            m_key = tok.match(KEY_PATH_TOKEN)->get_value();
+            tok.match(END_TOKEN);
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(get_line());
+            throw e;
+        }
 	}
 
 	TokenType TokenFor::gettype()
@@ -488,7 +957,7 @@ namespace impl
 	{
         try
         {
-            data_ptr value = parse_val(m_key, data) ;
+            data_ptr value = data.parse_path(m_key);
             data_list &items = value->getlist() ;
             for (size_t i = 0 ; i < items.size() ; ++i)
             {
@@ -520,7 +989,7 @@ namespace impl
 
 	void TokenIf::gettext( std::ostream &stream, data_map &data )
 	{
-		if (is_true(m_expr, data))
+		if (is_true(data))
 		{
 			for(size_t j = 0 ; j < m_children.size() ; ++j)
 			{
@@ -529,56 +998,58 @@ namespace impl
 		}
 	}
 
-	bool TokenIf::is_true( std::string expr, data_map &data )
+	bool TokenIf::is_true( data_map &data )
 	{
-		std::vector<std::string> elements ;
-		boost::split(elements, expr, boost::is_space()) ;
-
-		if (elements[1] == "not")
-		{
-			return parse_val(elements[2], data)->empty() ;
-		}
-		if (elements.size() == 2)
-		{
-			return ! parse_val(elements[1], data)->empty() ;
-		}
-        std::string lhs;
-        std::string rhs;
         try
         {
-            lhs = parse_val(elements[1], data)->getvalue() ;
-            rhs = parse_val(elements[3], data)->getvalue() ;
+            StmtTokenIterator it(m_expr);
+            it.match(IF_TOKEN);
+            ExprParser parser(it, data);
+            data_ptr d = parser.parse_expr();
+            it.match(END_TOKEN);
+
+            return !d->empty();
         }
         catch (TemplateException e)
         {
             e.set_line_if_missing(get_line());
             throw e;
         }
-		if (elements[2] == "==")
-		{
-			return lhs == rhs ;
-		}
-        else if (elements[2] == "!=")
-        {
-            return lhs != rhs ;
-        }
-        else
-        {
-            throw TemplateException(get_line(), "Unknown/unsupported operator in if statement");
-        }
 	}
 
 	// TokenDef
-    TokenDef::TokenDef(std::string name, uint32_t line)
+    TokenDef::TokenDef(stmt_token_vector_t & expr, uint32_t line)
     :   TokenParent(line)
     {
-		std::vector<std::string> elements ;
-		boost::split(elements, name, boost::is_space()) ;
-		if (elements.size() != 2u)
-		{
-			throw TemplateException(get_line(), "Invalid syntax in def statement") ;
-		}
-		m_name = elements[1] ;
+        try
+        {
+            StmtTokenIterator tok(expr);
+            tok.match(DEF_TOKEN);
+
+            m_name = tok.match(KEY_PATH_TOKEN)->get_value();
+
+            if (tok.get()->get_type() == OPEN_PAREN_TOKEN)
+            {
+                tok.match(OPEN_PAREN_TOKEN);
+
+                while (tok.get()->get_type() != CLOSE_PAREN_TOKEN)
+                {
+                    m_params.push_back(tok.match(KEY_PATH_TOKEN)->get_value());
+
+                    if (tok.get()->get_type() != CLOSE_PAREN_TOKEN)
+                    {
+                        tok.match(COMMA_TOKEN);
+                    }
+                }
+                tok.match(CLOSE_PAREN_TOKEN);
+            }
+            tok.match(END_TOKEN);
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(get_line());
+            throw e;
+        }
     }
 
 	TokenType TokenDef::gettype()
@@ -603,42 +1074,11 @@ namespace impl
         }
 	}
 
-	// TokenEnd
-    TokenEnd::TokenEnd(std::string text, uint32_t line)
-    :   Token(line)
-    {
-		if (boost::starts_with(text, "endfor"))
-        {
-            m_type = TOKEN_TYPE_ENDFOR;
-        }
-        else if (boost::starts_with(text, "endif"))
-        {
-            m_type = TOKEN_TYPE_ENDIF;
-        }
-        else if (boost::starts_with(text, "enddef"))
-        {
-            m_type = TOKEN_TYPE_ENDDEF;
-        }
-        else
-        {
-            throw TemplateException(get_line(), "Unknown end of control statement");
-        }
-	}
-
 	void TokenEnd::gettext( std::ostream &, data_map &)
 	{
 		throw TemplateException(get_line(), "End-of-control statements have no associated text") ;
 	}
 
-	// gettext
-	// generic helper for getting text from tokens.
-
-    std::string gettext(token_ptr token, data_map &data)
-	{
-		std::ostringstream stream ;
-		token->gettext(stream, data) ;
-		return stream.str() ;
-	}
 	//////////////////////////////////////////////////////////////////////////
 	// parse_tree
 	// recursively parses list of tokens into a tree
@@ -741,8 +1181,16 @@ namespace impl
 				pos = text.find("}") ;
 				if (pos != std::string::npos)
 				{
-                    pre_text = boost::trim_copy(text.substr(1, pos-1));
-					tokens.push_back(token_ptr (new TokenVar(pre_text, currentLine))) ;
+                    pre_text = text.substr(1, pos-1);
+
+                    stmt_token_vector_t stmt_tokens = tokenize_statement(pre_text);
+//                    if (stmt_tokens.empty() || stmt_tokens[0].get_type() != KEY_PATH_TOKEN)
+//                    {
+//                        throw TemplateException(currentLine, "expected variable name");
+//                    }
+
+					tokens.push_back(token_ptr (new TokenVar(stmt_tokens, currentLine))) ;
+
 					text = text.substr(pos+1) ;
 				}
 
@@ -771,22 +1219,33 @@ namespace impl
 
                     text = text.substr(pos+1) ;
 
+                    stmt_token_vector_t stmt_tokens = tokenize_statement(expression);
+
                     // Create control statement tokens.
-					if (boost::starts_with(expression, "for "))
-					{
-						tokens.push_back(token_ptr (new TokenFor(expression, savedLine))) ;
+                    const StatementToken & keyword = stmt_tokens[0];
+					if (keyword.get_type() == FOR_TOKEN)
+                    {
+						tokens.push_back(token_ptr (new TokenFor(stmt_tokens, savedLine))) ;
 					}
-					else if (boost::starts_with(expression, "if "))
+					else if (keyword.get_type() == IF_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenIf(expression, savedLine))) ;
+						tokens.push_back(token_ptr (new TokenIf(stmt_tokens, savedLine))) ;
 					}
-					else if (boost::starts_with(expression, "def "))
+					else if (keyword.get_type() == DEF_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenDef(expression, savedLine))) ;
+						tokens.push_back(token_ptr (new TokenDef(stmt_tokens, savedLine))) ;
 					}
-					else if (boost::starts_with(expression, "end"))
+					else if (keyword.get_type() == ENDFOR_TOKEN)
 					{
-						tokens.push_back(token_ptr (new TokenEnd(boost::trim_copy(expression), savedLine))) ;
+						tokens.push_back(token_ptr (new TokenEnd(TOKEN_TYPE_ENDFOR, savedLine))) ;
+					}
+					else if (keyword.get_type() == ENDIF_TOKEN)
+					{
+						tokens.push_back(token_ptr (new TokenEnd(TOKEN_TYPE_ENDIF, savedLine))) ;
+					}
+					else if (keyword.get_type() == ENDDEF_TOKEN)
+					{
+						tokens.push_back(token_ptr (new TokenEnd(TOKEN_TYPE_ENDDEF, savedLine))) ;
 					}
                     else
                     {
