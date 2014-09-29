@@ -58,20 +58,34 @@ Syntax
 Control statements on a line by themselves will eat the newline following the statement.
 
 Anywhere a variable name is used, you may use a dotted key path to walk through the
-keys of nested data_map objects. The elements of the key path used with a def statement
-will be created if they do not exist.
+keys of nested data_map objects.
 
-Anywhere a key path is used, you may also use a quoted string. This is actually only
-useful with if statements, as shown above.
+If statements and variable substitution blocks accept arbitrary expressions. This is
+currently only useful for if statements, as the expressions are only Boolean.
 
-Operators for if statement (x is a variable path):
+Operators for expressions (x and y are subexpressions):
 
 ==========  =======================================================
-x           True if x is not empty
 not x       True if x is empty
 x == y      Equality
 x != y      Inequality
+x and y     Boolean and
+x or y      Boolean or
+(x)         Parenthesized subexpression
 ==========  =======================================================
+
+Supported value types in expressions:
+
+==========  ===============================================================
+key         Name of key in top-level data_map (simple case of key path).
+key.path    Dotted path of data_map keys.
+true        Boolean true.
+false       Boolean false.
+"text"      Quoted string.
+==========  ===============================================================
+
+If the expression in an if statement produces a non-Boolean value such as a string,
+then the expression is considered true if the value is not empty.
 
 Inside a for statement block, a "loop" map variable is defined with these keys:
 
@@ -142,6 +156,8 @@ enddef statements. The subtemplate is stored in the named variable, which may be
 As with all subtemplates, the contents are evaluated at the point where the def variable
 is used.
 
+The elements of the key path named in a def statement will be created if they do not exist.
+
 Handy Functions
 ========================
 ``make_data()`` : Feed it a bool, string, data_map, or data_list to create a data entry.
@@ -175,7 +191,7 @@ error.
 
 Known Issues
 ==================
-- Quoted strings may not have spaces in them.
+- "defined" pseudo-function is broken, always returning true.
 
 */
 #pragma once
@@ -373,8 +389,6 @@ namespace cpptempl
         return data_ptr(boost::lexical_cast<std::string>(val));
     }
 
-    data_ptr make_template(const std::string & templateText);
-
 namespace impl {
 
 	// node classes
@@ -400,6 +414,11 @@ namespace impl {
 		std::string parse(data_map & data);
         string_vector & params();
     };
+
+    inline data_ptr make_template(const std::string & templateText)
+    {
+        return data_ptr(new DataTemplate(templateText));
+    }
 
 	// The big daddy. Pass in the template and data,
 	// and get out a completed doc.

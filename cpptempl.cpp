@@ -19,19 +19,21 @@ namespace impl
     {
         INVALID_TOKEN,
         KEY_PATH_TOKEN,
+        STRING_LITERAL_TOKEN,
         FOR_TOKEN,
         IN_TOKEN,
         IF_TOKEN,
+        ELIF_TOKEN,
+        ELSE_TOKEN,
         DEF_TOKEN,
         ENDFOR_TOKEN,
         ENDIF_TOKEN,
         ENDDEF_TOKEN,
+        AND_TOKEN,
+        OR_TOKEN,
         NOT_TOKEN,
         EQ_TOKEN,
         NEQ_TOKEN,
-        AND_TOKEN,
-        OR_TOKEN,
-        STRING_LITERAL_TOKEN,
         OPEN_PAREN_TOKEN = '(',
         CLOSE_PAREN_TOKEN = ')',
         COMMA_TOKEN = ',',
@@ -386,7 +388,7 @@ namespace impl
     TemplateException::TemplateException(size_t line, std::string reason)
     :   std::exception(),
         m_line(0),
-        m_reason()
+        m_reason(reason)
     {
         set_line_if_missing(line);
     }
@@ -398,11 +400,6 @@ namespace impl
             m_line = line;
             m_reason = std::string("Line ") + boost::lexical_cast<std::string>(line) + ": " + m_reason;
         }
-    }
-
-    data_ptr make_template(const std::string & templateText)
-    {
-        return data_ptr(new DataTemplate(templateText));
     }
 
 	//////////////////////////////////////////////////////////////////////////
@@ -492,52 +489,39 @@ namespace impl
         return (isalnum(c) || c == '.' || c == '_');
     }
 
-    inline TokenType get_keyword_token(const std::string & s)
+    struct KeywordDef
     {
-        if (s == "for")
+        TokenType tok;
+        const char * keyword;
+    };
+
+    const KeywordDef k_keywords[] = {
+            { FOR_TOKEN,    "for" },
+            { IN_TOKEN,     "in" },
+            { IF_TOKEN,     "if" },
+            { ELIF_TOKEN,   "elif" },
+            { ELSE_TOKEN,   "else" },
+            { DEF_TOKEN,    "def" },
+            { ENDFOR_TOKEN, "endfor" },
+            { ENDIF_TOKEN,  "endif" },
+            { ENDDEF_TOKEN, "enddef" },
+            { AND_TOKEN,    "and" },
+            { OR_TOKEN,     "or" },
+            { NOT_TOKEN,    "not" },
+            { INVALID_TOKEN }
+        };
+
+    TokenType get_keyword_token(const std::string & s)
+    {
+        const KeywordDef * k = k_keywords;
+        for (; k->tok != INVALID_TOKEN; ++k)
         {
-            return FOR_TOKEN;
+            if (s == k->keyword)
+            {
+                return k->tok;
+            }
         }
-        else if (s == "in")
-        {
-            return IN_TOKEN;
-        }
-        else if (s == "if")
-        {
-            return IF_TOKEN;
-        }
-        else if (s == "def")
-        {
-            return DEF_TOKEN;
-        }
-        else if (s == "endfor")
-        {
-            return ENDFOR_TOKEN;
-        }
-        else if (s == "endif")
-        {
-            return ENDIF_TOKEN;
-        }
-        else if (s == "enddef")
-        {
-            return ENDDEF_TOKEN;
-        }
-        else if (s == "not")
-        {
-            return NOT_TOKEN;
-        }
-        else if (s == "and")
-        {
-            return AND_TOKEN;
-        }
-        else if (s == "or")
-        {
-            return OR_TOKEN;
-        }
-        else
-        {
-            return INVALID_TOKEN;
-        }
+        return INVALID_TOKEN;
     }
 
     void create_id_token(token_vector & tokens, const std::string & s)
@@ -690,6 +674,10 @@ namespace impl
         printf("--\n");
     }
 
+	//////////////////////////////////////////////////////////////////////////
+	// Expr parser
+	//////////////////////////////////////////////////////////////////////////
+
     // Expression grammar
     //
     // expr         ::= bterm ( "or" bterm )*
@@ -752,7 +740,7 @@ namespace impl
         }
         catch (data_map::key_error & e)
         {
-            return make_data("{$" + path + "}");
+            return ""; //make_data("{$" + path + "}");
         }
     }
 
@@ -761,7 +749,7 @@ namespace impl
         Token * path = m_tok.match(KEY_PATH_TOKEN);
 
         std::vector<data_ptr> params;
-        if (m_tok.get()->get_type() == OPEN_PAREN_TOKEN)
+        if (m_tok->get_type() == OPEN_PAREN_TOKEN)
         {
             m_tok.match(OPEN_PAREN_TOKEN);
 
@@ -769,7 +757,7 @@ namespace impl
             {
                 params.push_back(parse_expr());
 
-                if (m_tok.get()->get_type() == CLOSE_PAREN_TOKEN)
+                if (m_tok->get_type() == CLOSE_PAREN_TOKEN)
                 {
                     m_tok.match(CLOSE_PAREN_TOKEN);
                     break;
@@ -791,7 +779,7 @@ namespace impl
         if (tokType == NOT_TOKEN)
         {
             m_tok.next();
-            result = !parse_expr()->empty();
+            result = parse_expr()->empty();
         }
         else if (tokType == OPEN_PAREN_TOKEN)
         {
@@ -1028,15 +1016,15 @@ namespace impl
 
             m_name = tok.match(KEY_PATH_TOKEN)->get_value();
 
-            if (tok.get()->get_type() == OPEN_PAREN_TOKEN)
+            if (tok->get_type() == OPEN_PAREN_TOKEN)
             {
                 tok.match(OPEN_PAREN_TOKEN);
 
-                while (tok.get()->get_type() != CLOSE_PAREN_TOKEN)
+                while (tok->get_type() != CLOSE_PAREN_TOKEN)
                 {
                     m_params.push_back(tok.match(KEY_PATH_TOKEN)->get_value());
 
-                    if (tok.get()->get_type() != CLOSE_PAREN_TOKEN)
+                    if (tok->get_type() != CLOSE_PAREN_TOKEN)
                     {
                         tok.match(COMMA_TOKEN);
                     }
@@ -1139,148 +1127,156 @@ namespace impl
 	//////////////////////////////////////////////////////////////////////////
 	node_vector & tokenize(std::string text, node_vector &nodes)
 	{
-        bool eolPrecedes = true;
-        bool lastWasEol = true;
         uint32_t currentLine = 1;
-		while(! text.empty())
-		{
-			size_t pos = text.find("{") ;
-			if (pos == std::string::npos)
-			{
-				if (! text.empty())
-				{
-					nodes.push_back(node_ptr(new NodeText(text, currentLine))) ;
-				}
-				return nodes ;
-			}
-            std::string pre_text = text.substr(0, pos) ;
-            currentLine += count_newlines(pre_text) ;
-			if (! pre_text.empty())
-			{
-				nodes.push_back(node_ptr(new NodeText(pre_text, currentLine))) ;
-			}
-
-            // Track whether there was an EOL prior to this open brace.
-            bool newLastWasEol = pos > 0 && text[pos-1] == '\n';
-            eolPrecedes = (pos == 0 && lastWasEol) || newLastWasEol;
-            if (pos > 0)
+        try
+        {
+            bool eolPrecedes = true;
+            bool lastWasEol = true;
+            while(! text.empty())
             {
-                lastWasEol = newLastWasEol;
-            }
-
-			text = text.substr(pos+1) ;
-			if (text.empty())
-			{
-				nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
-				return nodes ;
-			}
-
-			// variable
-			if (text[0] == '$')
-			{
-				pos = text.find("}") ;
-				if (pos != std::string::npos)
-				{
-                    pre_text = text.substr(1, pos-1);
-
-                    token_vector stmt_tokens = tokenize_statement(pre_text);
-//                    if (stmt_tokens.empty() || stmt_tokens[0].get_type() != KEY_PATH_TOKEN)
-//                    {
-//                        throw TemplateException(currentLine, "expected variable name");
-//                    }
-
-					nodes.push_back(node_ptr (new NodeVar(stmt_tokens, currentLine))) ;
-
-					text = text.substr(pos+1) ;
-				}
-
-                lastWasEol = false ;
-			}
-			// control statement
-			else if (text[0] == '%')
-			{
-				pos = text.find("}") ;
-				if (pos != std::string::npos)
-				{
-                    uint32_t savedLine = currentLine;
-                    pre_text = text.substr(1, pos-2) ;
-                    currentLine += count_newlines(pre_text) ;
-                    std::string expression = strip_comment(pre_text) ;
-
-                    bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n' ;
-
-                    // Chop off following eol if this control statement is on a line by itself.
-                    if (eolPrecedes && eolFollows)
+                size_t pos = text.find("{") ;
+                if (pos == std::string::npos)
+                {
+                    if (! text.empty())
                     {
-                        ++pos ;
-                        ++currentLine ;
-                        lastWasEol = true ;
+                        nodes.push_back(node_ptr(new NodeText(text, currentLine))) ;
+                    }
+                    return nodes ;
+                }
+                std::string pre_text = text.substr(0, pos) ;
+                currentLine += count_newlines(pre_text) ;
+                if (! pre_text.empty())
+                {
+                    nodes.push_back(node_ptr(new NodeText(pre_text, currentLine))) ;
+                }
+
+                // Track whether there was an EOL prior to this open brace.
+                bool newLastWasEol = pos > 0 && text[pos-1] == '\n';
+                eolPrecedes = (pos == 0 && lastWasEol) || newLastWasEol;
+                if (pos > 0)
+                {
+                    lastWasEol = newLastWasEol;
+                }
+
+                text = text.substr(pos+1) ;
+                if (text.empty())
+                {
+                    nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
+                    return nodes ;
+                }
+
+                // variable
+                if (text[0] == '$')
+                {
+                    pos = text.find("}") ;
+                    if (pos != std::string::npos)
+                    {
+                        pre_text = text.substr(1, pos-1);
+                        text = text.substr(pos+1) ;
+
+                        token_vector stmt_tokens = tokenize_statement(pre_text);
+                        nodes.push_back(node_ptr (new NodeVar(stmt_tokens, currentLine))) ;
                     }
 
-                    text = text.substr(pos+1) ;
-
-                    token_vector stmt_tokens = tokenize_statement(expression);
-
-                    // Create control statement nodes.
-                    const Token & keyword = stmt_tokens[0];
-					if (keyword.get_type() == FOR_TOKEN)
+                    lastWasEol = false ;
+                }
+                // control statement
+                else if (text[0] == '%')
+                {
+                    pos = text.find("%}") ;
+                    if (pos != std::string::npos)
                     {
-						nodes.push_back(node_ptr (new NodeFor(stmt_tokens, savedLine))) ;
-					}
-					else if (keyword.get_type() == IF_TOKEN)
-					{
-						nodes.push_back(node_ptr (new NodeIf(stmt_tokens, savedLine))) ;
-					}
-					else if (keyword.get_type() == DEF_TOKEN)
-					{
-						nodes.push_back(node_ptr (new NodeDef(stmt_tokens, savedLine))) ;
-					}
-					else if (keyword.get_type() == ENDFOR_TOKEN)
-					{
-						nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDFOR, savedLine))) ;
-					}
-					else if (keyword.get_type() == ENDIF_TOKEN)
-					{
-						nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDIF, savedLine))) ;
-					}
-					else if (keyword.get_type() == ENDDEF_TOKEN)
-					{
-						nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDDEF, savedLine))) ;
-					}
+                        uint32_t savedLine = currentLine;
+                        pre_text = text.substr(1, pos-1) ;
+                        uint32_t lineCount = count_newlines(pre_text) ;
+                        std::string expression = strip_comment(pre_text) ;
+
+                        bool eolFollows = text.size() > pos+2 && text[pos+2] == '\n' ;
+
+                        // Chop off following eol if this control statement is on a line by itself.
+                        if (eolPrecedes && eolFollows)
+                        {
+                            ++pos ;
+                            ++currentLine ;
+                            lastWasEol = true ;
+                        }
+
+                        text = text.substr(pos+2) ;
+
+                        token_vector stmt_tokens = tokenize_statement(expression);
+
+                        // Create control statement nodes.
+                        const Token & keyword = stmt_tokens[0];
+                        if (keyword.get_type() == FOR_TOKEN)
+                        {
+                            nodes.push_back(node_ptr (new NodeFor(stmt_tokens, savedLine))) ;
+                        }
+                        else if (keyword.get_type() == IF_TOKEN)
+                        {
+                            nodes.push_back(node_ptr (new NodeIf(stmt_tokens, savedLine))) ;
+                        }
+                        else if (keyword.get_type() == DEF_TOKEN)
+                        {
+                            nodes.push_back(node_ptr (new NodeDef(stmt_tokens, savedLine))) ;
+                        }
+                        else if (keyword.get_type() == ENDFOR_TOKEN)
+                        {
+                            nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDFOR, savedLine))) ;
+                        }
+                        else if (keyword.get_type() == ENDIF_TOKEN)
+                        {
+                            nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDIF, savedLine))) ;
+                        }
+                        else if (keyword.get_type() == ENDDEF_TOKEN)
+                        {
+                            nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDDEF, savedLine))) ;
+                        }
+                        else
+                        {
+                            throw TemplateException(savedLine, "Unrecognized control statement");
+                        }
+
+                        currentLine += lineCount;
+                    }
                     else
                     {
-                        throw TemplateException(savedLine, "Unrecognized control statement");
+                        throw TemplateException(currentLine, "missing close statement block");
                     }
-				}
-			}
-			// comment
-			else if (text[0] == '#')
-			{
-				pos = text.find("}") ;
-				if (pos != std::string::npos)
-				{
-                    pre_text = text.substr(1, pos-2) ;
-                    currentLine += count_newlines(pre_text) ;
-
-                    bool eolFollows = text.size()-1 > pos && text[pos+1] == '\n' ;
-
-                    // Chop off following eol if this comment is on a line by itself.
-                    if (eolPrecedes && eolFollows)
+                }
+                // comment
+                else if (text[0] == '#')
+                {
+                    pos = text.find("#}") ;
+                    if (pos != std::string::npos)
                     {
-                        ++pos ;
-                        ++currentLine ;
-                        lastWasEol = true ;
-                    }
+                        pre_text = text.substr(1, pos-1) ;
+                        currentLine += count_newlines(pre_text) ;
 
-                    text = text.substr(pos+1) ;
-				}
+                        bool eolFollows = text.size() > pos+2 && text[pos+2] == '\n' ;
+
+                        // Chop off following eol if this comment is on a line by itself.
+                        if (eolPrecedes && eolFollows)
+                        {
+                            ++pos ;
+                            ++currentLine ;
+                            lastWasEol = true ;
+                        }
+
+                        text = text.substr(pos+2) ;
+                    }
+                }
+                else
+                {
+                    nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
+                }
             }
-			else
-			{
-				nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
-			}
-		}
-		return nodes ;
+            return nodes ;
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(currentLine);
+            throw e;
+        }
 	}
 
 } // namespace impl
