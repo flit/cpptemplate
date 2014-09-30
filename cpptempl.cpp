@@ -20,6 +20,8 @@ namespace impl
         INVALID_TOKEN,
         KEY_PATH_TOKEN,
         STRING_LITERAL_TOKEN,
+        TRUE_TOKEN,
+        FALSE_TOKEN,
         FOR_TOKEN,
         IN_TOKEN,
         IF_TOKEN,
@@ -101,7 +103,7 @@ namespace impl
         data_ptr parse_bfactor();
         data_ptr parse_factor();
         data_ptr parse_var();
-        data_ptr get_var_value(const std::string & path, std::vector<data_ptr> & params);
+        data_ptr get_var_value(const std::string & path, data_list & params);
     };
 
 	typedef enum
@@ -241,6 +243,10 @@ namespace impl
 
 	// data_map
 	data_ptr& data_map::operator [](const std::string& key) {
+        if (!has(key) && parent)
+        {
+            return (*parent)[key];
+        }
 		return data[key];
 	}
 	bool data_map::empty() {
@@ -365,17 +371,40 @@ namespace impl
 		return false;
 	}
 
-    std::string DataTemplate::parse(data_map & data)
+    std::string DataTemplate::eval(data_map & data, data_list * param_values)
     {
+        data_map * use_data = &data;
+
+        // Build map of param names to provided param values. The params map's
+        // parent is set to the main data_map. This will cause params to
+        // override keys in the main map, without modifying the main map.
+        data_map params_map;
+        if (param_values)
+        {
+            // Check number of params.
+            if (param_values->size() > m_params.size())
+            {
+                throw TemplateException("too many parameter(s) provided to subtemplate");
+            }
+
+            size_t i;
+            for (i=0; i < std::min(m_params.size(), param_values->size()); ++i)
+            {
+                const std::string & key = m_params[i];
+                data_ptr & value = (*param_values)[i];
+                params_map[key] = value;
+            }
+
+            params_map.set_parent(&data);
+            use_data = &params_map;
+        }
+
+        // Recursively calls gettext on each node in the tree.
+        // gettext returns the appropriate text for that node.
         std::ostringstream stream;
 		for (size_t i = 0 ; i < m_tree.size() ; ++i)
 		{
-			// Recursively calls gettext on each node in the tree.
-			// gettext returns the appropriate text for that node.
-			// for text, itself;
-			// for variable, substitution;
-			// for control statement, recursively gets kids
-			m_tree[i]->gettext(stream, data) ;
+			m_tree[i]->gettext(stream, *use_data) ;
 		}
 		return stream.str() ;
     }
@@ -496,6 +525,8 @@ namespace impl
     };
 
     const KeywordDef k_keywords[] = {
+            { TRUE_TOKEN,   "true" },
+            { FALSE_TOKEN,  "false" },
             { FOR_TOKEN,    "for" },
             { IN_TOKEN,     "in" },
             { IF_TOKEN,     "if" },
@@ -575,7 +606,7 @@ namespace impl
                         str_open_quote = c;
                         state = STRING_LITERAL_STATE;
                     }
-                    else if (c == '=' || c == '!')
+                    else if (c == '=' || c == '!' || c == '&' || c == '|')
                     {
                         first_op_char = c;
                         state = OPERATOR_STATE;
@@ -623,12 +654,10 @@ namespace impl
                             {
                                 case '=':
                                     tokens.emplace_back(EQ_TOKEN);
+                                    state = INIT_STATE;
                                     break;
                                 default:
-                                    // Reprocess this char in the initial state.
-                                    state = INIT_STATE;
-                                    --i;
-                                    break;
+                                    throw TemplateException("unexpected '=' character");
                             }
                             break;
                         case '!':
@@ -636,16 +665,41 @@ namespace impl
                             {
                                 case '=':
                                     tokens.emplace_back(NEQ_TOKEN);
+                                    state = INIT_STATE;
                                     break;
                                 default:
+                                    tokens.emplace_back(NOT_TOKEN);
+
                                     // Reprocess this char in the initial state.
                                     state = INIT_STATE;
                                     --i;
                                     break;
                             }
                             break;
+                        case '&':
+                            switch (c)
+                            {
+                                case '&':
+                                    tokens.emplace_back(AND_TOKEN);
+                                    state = INIT_STATE;
+                                    break;
+                                default:
+                                    throw TemplateException("unexpected '&' character");
+                            }
+                            break;
+                        case '|':
+                            switch (c)
+                            {
+                                case '|':
+                                    tokens.emplace_back(OR_TOKEN);
+                                    state = INIT_STATE;
+                                    break;
+                                default:
+                                    throw TemplateException("unexpected '|' character");
+                            }
+                            break;
                         default:
-                            throw TemplateException("unexpected first op char");
+                            throw TemplateException("internal error: unexpected first op char");
                     }
                     break;
             }
@@ -660,18 +714,12 @@ namespace impl
         {
             throw TemplateException("unterminated string literal");
         }
+        else if (state == OPERATOR_STATE)
+        {
+            throw TemplateException("unexpected character");
+        }
 
         return tokens;
-    }
-
-    void print_tokens(const token_vector & tokens)
-    {
-        printf("tokens:\n");
-        for (auto it : tokens)
-        {
-            printf("%d : %s\n", it.get_type(), it.get_value().c_str());
-        }
-        printf("--\n");
     }
 
 	//////////////////////////////////////////////////////////////////////////
@@ -690,7 +738,7 @@ namespace impl
     // var          ::= KEY_PATH [ args ]
     // args         ::= "(" [ expr ( "," expr )* ")"
 
-    data_ptr ExprParser::get_var_value(const std::string & path, std::vector<data_ptr> & params)
+    data_ptr ExprParser::get_var_value(const std::string & path, data_list & params)
     {
         // Check if this is a pseudo function.
         bool is_fn = false;
@@ -732,7 +780,8 @@ namespace impl
                 {
                     std::shared_ptr<Data> tmplData = result.get();
                     DataTemplate * tmpl = dynamic_cast<DataTemplate*>(tmplData.get());
-                    result = make_data(tmpl->parse(m_data));
+                    assert(tmpl);
+                    result = tmpl->eval(m_data, &params);
                 }
             }
 
@@ -740,33 +789,30 @@ namespace impl
         }
         catch (data_map::key_error & e)
         {
-            return ""; //make_data("{$" + path + "}");
+            // Return an empty string for invalid key so it will eval to false.
+            return "";
         }
     }
 
     data_ptr ExprParser::parse_var()
     {
-        Token * path = m_tok.match(KEY_PATH_TOKEN);
+        Token * path = m_tok.match(KEY_PATH_TOKEN, "expected key path");
 
-        std::vector<data_ptr> params;
+        data_list params;
         if (m_tok->get_type() == OPEN_PAREN_TOKEN)
         {
             m_tok.match(OPEN_PAREN_TOKEN);
 
-            while (true)
+            while (m_tok->get_type() != CLOSE_PAREN_TOKEN)
             {
                 params.push_back(parse_expr());
 
-                if (m_tok->get_type() == CLOSE_PAREN_TOKEN)
+                if (m_tok->get_type() != CLOSE_PAREN_TOKEN)
                 {
-                    m_tok.match(CLOSE_PAREN_TOKEN);
-                    break;
-                }
-                else
-                {
-                    m_tok.match(COMMA_TOKEN);
+                    m_tok.match(COMMA_TOKEN, "expected comma");
                 }
             }
+            m_tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
         }
 
         return get_var_value(path->get_value(), params);
@@ -785,15 +831,25 @@ namespace impl
         {
             m_tok.next();
             result = parse_expr();
-            m_tok.match(CLOSE_PAREN_TOKEN);
-        }
-        else if (tokType == KEY_PATH_TOKEN)
-        {
-            result = parse_var();
+            m_tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
         }
         else if (tokType == STRING_LITERAL_TOKEN)
         {
             result = m_tok.match(STRING_LITERAL_TOKEN)->get_value();
+        }
+        else if (tokType == TRUE_TOKEN)
+        {
+            m_tok.next();
+            result = true;
+        }
+        else if (tokType == FALSE_TOKEN)
+        {
+            m_tok.next();
+            result = false;
+        }
+        else
+        {
+            result = parse_var();
         }
         return result;
     }
@@ -920,20 +976,12 @@ namespace impl
 	NodeFor::NodeFor(token_vector & tokens, uint32_t line)
     :   NodeParent(line)
 	{
-        try
-        {
-            TokenIterator tok(tokens);
-            tok.match(FOR_TOKEN);
-            m_val = tok.match(KEY_PATH_TOKEN)->get_value();
-            tok.match(IN_TOKEN);
-            m_key = tok.match(KEY_PATH_TOKEN)->get_value();
-            tok.match(END_TOKEN);
-        }
-        catch (TemplateException e)
-        {
-            e.set_line_if_missing(get_line());
-            throw e;
-        }
+        TokenIterator tok(tokens);
+        tok.match(FOR_TOKEN, "expected 'for'");
+        m_val = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
+        tok.match(IN_TOKEN, "expected 'in'");
+        m_key = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
+        tok.match(END_TOKEN, "expected end of statement");
 	}
 
 	NodeType NodeFor::gettype()
@@ -991,10 +1039,10 @@ namespace impl
         try
         {
             TokenIterator it(m_expr);
-            it.match(IF_TOKEN);
+            it.match(IF_TOKEN, "expected 'if'");
             ExprParser parser(it, data);
             data_ptr d = parser.parse_expr();
-            it.match(END_TOKEN);
+            it.match(END_TOKEN, "expected end of statement");
 
             return !d->empty();
         }
@@ -1009,35 +1057,27 @@ namespace impl
     NodeDef::NodeDef(token_vector & expr, uint32_t line)
     :   NodeParent(line)
     {
-        try
+        TokenIterator tok(expr);
+        tok.match(DEF_TOKEN, "expected 'def'");
+
+        m_name = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
+
+        if (tok->get_type() == OPEN_PAREN_TOKEN)
         {
-            TokenIterator tok(expr);
-            tok.match(DEF_TOKEN);
+            tok.match(OPEN_PAREN_TOKEN);
 
-            m_name = tok.match(KEY_PATH_TOKEN)->get_value();
-
-            if (tok->get_type() == OPEN_PAREN_TOKEN)
+            while (tok->get_type() != CLOSE_PAREN_TOKEN)
             {
-                tok.match(OPEN_PAREN_TOKEN);
+                m_params.push_back(tok.match(KEY_PATH_TOKEN, "expected key path")->get_value());
 
-                while (tok->get_type() != CLOSE_PAREN_TOKEN)
+                if (tok->get_type() != CLOSE_PAREN_TOKEN)
                 {
-                    m_params.push_back(tok.match(KEY_PATH_TOKEN)->get_value());
-
-                    if (tok->get_type() != CLOSE_PAREN_TOKEN)
-                    {
-                        tok.match(COMMA_TOKEN);
-                    }
+                    tok.match(COMMA_TOKEN, "expected comma");
                 }
-                tok.match(CLOSE_PAREN_TOKEN);
             }
-            tok.match(END_TOKEN);
+            tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
         }
-        catch (TemplateException e)
-        {
-            e.set_line_if_missing(get_line());
-            throw e;
-        }
+        tok.match(END_TOKEN, "expected end of statement");
     }
 
 	NodeType NodeDef::gettype()
@@ -1052,9 +1092,12 @@ namespace impl
             // Follow the key path.
             data_ptr& target = data.parse_path(m_name, true);
 
-            // Set the map entry's value to a template. The nodes were already
-            // parsed and set as our m_children vector.
-            target = data_ptr(new DataTemplate(m_children));
+            // Set the map entry's value to a newly created template. The nodes were already
+            // parsed and set as our m_children vector. The names of the template's parameters
+            // are set from the param names we parsed in the ctor.
+            DataTemplate * tmpl = new DataTemplate(m_children);
+            tmpl->params() = m_params;
+            target = data_ptr(tmpl);
         }
         catch (data_map::key_error &)
         {
@@ -1186,10 +1229,8 @@ namespace impl
                     pos = text.find("%}") ;
                     if (pos != std::string::npos)
                     {
-                        uint32_t savedLine = currentLine;
                         pre_text = text.substr(1, pos-1) ;
                         uint32_t lineCount = count_newlines(pre_text) ;
-                        std::string expression = strip_comment(pre_text) ;
 
                         bool eolFollows = text.size() > pos+2 && text[pos+2] == '\n' ;
 
@@ -1203,37 +1244,35 @@ namespace impl
 
                         text = text.substr(pos+2) ;
 
-                        token_vector stmt_tokens = tokenize_statement(expression);
+                        // Tokenize the control statement.
+                        token_vector stmt_tokens = tokenize_statement(strip_comment(pre_text));
 
                         // Create control statement nodes.
-                        const Token & keyword = stmt_tokens[0];
-                        if (keyword.get_type() == FOR_TOKEN)
+                        switch (stmt_tokens[0].get_type())
                         {
-                            nodes.push_back(node_ptr (new NodeFor(stmt_tokens, savedLine))) ;
-                        }
-                        else if (keyword.get_type() == IF_TOKEN)
-                        {
-                            nodes.push_back(node_ptr (new NodeIf(stmt_tokens, savedLine))) ;
-                        }
-                        else if (keyword.get_type() == DEF_TOKEN)
-                        {
-                            nodes.push_back(node_ptr (new NodeDef(stmt_tokens, savedLine))) ;
-                        }
-                        else if (keyword.get_type() == ENDFOR_TOKEN)
-                        {
-                            nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDFOR, savedLine))) ;
-                        }
-                        else if (keyword.get_type() == ENDIF_TOKEN)
-                        {
-                            nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDIF, savedLine))) ;
-                        }
-                        else if (keyword.get_type() == ENDDEF_TOKEN)
-                        {
-                            nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDDEF, savedLine))) ;
-                        }
-                        else
-                        {
-                            throw TemplateException(savedLine, "Unrecognized control statement");
+                            case FOR_TOKEN:
+                                nodes.push_back(node_ptr (new NodeFor(stmt_tokens, currentLine))) ;
+                                break;
+                            case IF_TOKEN:
+                                nodes.push_back(node_ptr (new NodeIf(stmt_tokens, currentLine))) ;
+                                break;
+                            case DEF_TOKEN:
+                                nodes.push_back(node_ptr (new NodeDef(stmt_tokens, currentLine))) ;
+                                break;
+                            case ENDFOR_TOKEN:
+                                nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDFOR, currentLine))) ;
+                                break;
+                            case ENDIF_TOKEN:
+                                nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDIF, currentLine))) ;
+                                break;
+                            case ENDDEF_TOKEN:
+                                nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDDEF, currentLine))) ;
+                                break;
+                            case END_TOKEN:
+                                throw TemplateException(currentLine, "empty control statement");
+                                break;
+                            default:
+                                throw TemplateException(currentLine, "Unrecognized control statement");
                         }
 
                         currentLine += lineCount;

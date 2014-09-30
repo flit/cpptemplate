@@ -51,7 +51,7 @@ Syntax
 :If:
     ``{% if person.name == "Bob" %}Full name: Robert{% endif %}``
 :Def:
-    ``{% def foobar %}template to store in the {$named} variable{% enddef %}``
+    ``{% def foobar(x) %}The value of x is {$x} today{% enddef %}``
 :Comment:
     ``{# comment goes here #}``
 
@@ -65,14 +65,27 @@ currently only useful for if statements, as the expressions are only Boolean.
 
 Operators for expressions (x and y are subexpressions):
 
-==========  =======================================================
-not x       True if x is empty
-x == y      Equality
-x != y      Inequality
-x and y     Boolean and
-x or y      Boolean or
-(x)         Parenthesized subexpression
-==========  =======================================================
+==============  =======================================================
+!x              True if x is empty or false
+x == y          Equality
+x != y          Inequality
+x && y          Boolean and
+x || y          Boolean or
+(x)             Parenthesized subexpression
+sub(x,y,...)    Subtemplate invocation with parameters
+==============  =======================================================
+
+The keywords "not", "and", and "or" are also supported in place of the C-style operators.
+Thus, "not (x and y)" is completely equivalent to "!(x && y)".
+
+There are also a few pseudo-functions that may be used in expressions. More may be added
+later.
+
+===============  ===========================================================
+``count(x)``     Returns the number of items in the specified list.
+``defined(x)``   Returns true if the key path specifies an existing key.
+``empty(x)``     True if the variable path x is the empty string.
+===============  ===========================================================
 
 Supported value types in expressions:
 
@@ -81,7 +94,8 @@ key         Name of key in top-level data_map (simple case of key path).
 key.path    Dotted path of data_map keys.
 true        Boolean true.
 false       Boolean false.
-"text"      Quoted string.
+"text"      Quoted string with double quotes.
+'text'      Quoted string with single quotes.
 ==========  ===============================================================
 
 If the expression in an if statement produces a non-Boolean value such as a string,
@@ -97,15 +111,6 @@ Inside a for statement block, a "loop" map variable is defined with these keys:
 ==========  =======================================================
 
 Def statements are described below under the Subtemplates section.
-
-There are a few pseudo-functions that may be used in if statements and variable
-substitution. More may be added later.
-
-===============  ===========================================================
-``count(x)``     Returns the number of items in the specified list.
-``defined(x)``   Returns true if the key path specifies an existing key.
-``empty(x)``     True if the variable path x is the empty string.
-===============  ===========================================================
 
 Control statements inside ``{% %}`` brackets may be commented at the end of the statement.
 This style of comment is started with ``--`` and runs to the close bracket of the statement,
@@ -146,17 +151,43 @@ it multiple times by substituting it as a variable. A subtemplate is completely
 re-evaluated every time it is substituted, using the current values of any variables.
 This is particularly useful within a loop.
 
+Subtemplates may take parameters. These are defined when the subtemplate is created
+via either of the methods described below. When a subtemplate is used in a variable
+substitution in a template, you may pass values for its parameters just as you would
+for a function call.
+
 There are two ways to define a subtemplate. The first is to use the ``make_template()``
 function. It takes a std::string and returns a subtemplate data_ptr, which may then
-be stored in a data_map.
+be stored in a data_map. It may also optionally be provided a vector of parameter
+name strings.
 
 The second way to create a subtemplate is to use the def statement within a template.
 Def statements define a subtemplate with the template contents between the def and
 enddef statements. The subtemplate is stored in the named variable, which may be a path.
-As with all subtemplates, the contents are evaluated at the point where the def variable
-is used.
+The elements of the key path will be created if they do not exist. As with all
+subtemplates, the contents are evaluated at the point where the def variable is used.
 
-The elements of the key path named in a def statement will be created if they do not exist.
+The parameters for a subtemplate may be specified in a def statement. This is done by
+listing the parameter names in parentheses after the subtemplate's key path, as shown
+in this example::
+
+    {% def mytmpl(foo, bar) %}
+    foo={$foo}
+    bar={$bar}
+    {% enddef %}
+
+To use this subtemplate, you would do something like this::
+
+    {$mytmpl("a", "b")}
+
+This variable substitution expression will pass the string constants "a" and "b" for the
+subtemplate parameters "foo" and "bar", respectively. During the evaluation of the
+subtemplate, parameter variables will be set to the specified values. If there is
+already a key in the global data map with the same name as a parameter, the parameter
+will shadow the global key. The global data map is not modified permanently. Any
+parameter keys will be restored to the original state, including being undefined, once the
+subtemplate evaluation is completed. Any expression may be used to generate the parameter
+values.
 
 Handy Functions
 ========================
@@ -178,7 +209,14 @@ data_map elements::
     person["name"] = "Fred";
     person["has_pet"] = true;
 
-``make_template()`` : Creates a subtemplate from a std::string.
+``make_template()`` : Creates a subtemplate from a std::string. The template string is
+passed as the first parameter. An optional pointer to a std::string vector can be provided
+as a second parameter to specify the names of subtemplate parameters.
+
+Example of creating a subtemplate with params::
+
+    string_vector params{"foo", "bar"};
+    data_ptr subtmpl = make_template(template_text, &params);
 
 Errors
 ==================
@@ -309,12 +347,15 @@ namespace cpptempl
             key_error(const std::string & msg) : std::runtime_error(msg) {}
         };
 
+        data_map() : data(), parent(nullptr) {}
 		data_ptr& operator [](const std::string& key);
 		bool empty();
 		bool has(const std::string& key);
         data_ptr& parse_path(const std::string& key, bool create=false);
+        void set_parent(data_map * p) { parent = p; }
 	private:
 		std::unordered_map<std::string, data_ptr> data;
+        data_map * parent;
 	};
 
 	class DataMap : public Data
@@ -411,13 +452,18 @@ namespace impl {
 		DataTemplate(impl::node_vector &&tree) : m_tree(tree) {}
 		virtual std::string getvalue();
 		virtual bool empty();
-		std::string parse(data_map & data);
-        string_vector & params();
+		std::string eval(data_map & data, data_list * param_values=nullptr);
+        string_vector & params() { return m_params; }
     };
 
-    inline data_ptr make_template(const std::string & templateText)
+    inline data_ptr make_template(const std::string & templateText, const string_vector * param_names=nullptr)
     {
-        return data_ptr(new DataTemplate(templateText));
+        DataTemplate * t = new DataTemplate(templateText);
+        if (param_names)
+        {
+            t->params() = *param_names;
+        }
+        return data_ptr(t);
     }
 
 	// The big daddy. Pass in the template and data,
