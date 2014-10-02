@@ -54,9 +54,9 @@ Complete example::
 There are two main functions that users will interact with, both called ``parse()``. They
 are in the ``cpptempl`` namespace. The prototypes for these functions are as follows::
 
-    std::string parse(std::string templ_text, data_map &data);
+    std::string parse(const std::string &templ_text, data_map &data);
 
-    void parse(std::ostream &stream, std::string templ_text, data_map &data);
+    void parse(std::ostream &stream, const std::string &templ_text, data_map &data);
 
 Both take the template text as a ``std::string`` along with a data_map that has the variable
 values to substitute. One form of ``parse()`` simply returns the result of the template
@@ -66,6 +66,17 @@ The other form takes a ``std::ostream`` reference as the first argument and writ
 template output to that stream. This form is actually more memory efficient, because it
 does not build up the complete template output in memory as a string before returning it.
 
+Another way to use cpptempl is to create a DataTemplate object. This is helpful if you
+need to use a template more than once because it only parses the template text a single
+time. Example::
+
+    cpptempl::DataTemplate tmpl(text);
+    std::string result = tmpl.eval(data);
+
+As with the ``parse()`` functions, there are two overloads of the ``DataTemplate::eval()``
+method. One returns the template output as a ``std::string``, while the other accepts a
+``std::ostream`` reference to which the output will be written.
+
 Syntax
 =================
 :Variables:
@@ -73,34 +84,44 @@ Syntax
 :Loops:
     ``{% for person in people %}Name: {$person.name}{% endfor %}``
 :If:
-    ``{% if person.name == "Bob" %}Full name: Robert{% endif %}``
+    ``{% if foo %}gorilla{% elif bar %}bonobo{% else %}orangutan{% endif %}``
 :Def:
     ``{% def foobar(x) %}The value of x is {$x} today{% enddef %}``
 :Comment:
     ``{# comment goes here #}``
 
 Control statements on a line by themselves will eat the newline following the statement.
+This also applies for cases where the open brace of the control statement is at the
+start of a line and the close brace is at the end of another line. In addition, this will
+work for multiple consecutive control statements as long as they completely occupy the
+lines on which they reside with no intervening space.
+
+All whitespace, including newlines, is ignored in control statements. This applies to
+variable substitutions, as well. So ``{$var.name}`` and ``{$ var.name }`` are equivalent.
 
 Anywhere a variable name is used, you may use a dotted key path to walk through the
 keys of nested data_map objects.
+
+As one would expect, if statements may have zero or more elif branches and one optional
+else branch.
 
 If statements and variable substitution blocks accept arbitrary expressions. This is
 currently only useful for if statements, as the expressions are only Boolean.
 
 Operators for expressions (x and y are subexpressions):
 
-==============  =======================================================
-!x              True if x is empty or false
-x == y          Equality
-x != y          Inequality
-x && y          Boolean and
-x || y          Boolean or
-(x)             Parenthesized subexpression
-sub(x,y,...)    Subtemplate invocation with parameters
-==============  =======================================================
+==================  =======================================================
+``!x``              True if x is empty or false
+``x == y``          Equality
+``x != y``          Inequality
+``x && y``          Boolean and
+``x || y``          Boolean or
+``(x)``             Parenthesized subexpression
+``sub(x,y,...)``    Subtemplate invocation with parameters
+==================  =======================================================
 
-The keywords "not", "and", and "or" are also supported in place of the C-style operators.
-Thus, "not (x and y)" is completely equivalent to "!(x && y)".
+Note that the keywords "not", "and", and "or" are also supported in place of the C-style
+operators. Thus, ``not (x and y)`` is completely equivalent to ``!(x && y)``.
 
 There are also a few pseudo-functions that may be used in expressions. More may be added
 later.
@@ -113,14 +134,14 @@ later.
 
 Supported value types in expressions:
 
-==========  ===============================================================
-key         Name of key in top-level data_map (simple case of key path).
-key.path    Dotted path of data_map keys.
-true        Boolean true.
-false       Boolean false.
-"text"      Quoted string with double quotes.
-'text'      Quoted string with single quotes.
-==========  ===============================================================
+==============  ===================================================================
+``key``         Name of key in top-level data_map (simple case of key path).
+``key.path``    Dotted path of data_map keys.
+``true``        Boolean true.
+``false``       Boolean false.
+``"text"``      Quoted string with double quotes.
+``'text'``      Quoted string with single quotes.
+==============  ===================================================================
 
 If the expression in an if statement produces a non-Boolean value such as a string,
 then the expression is considered true if the value is not empty.
@@ -165,7 +186,7 @@ All other types are converted to strings using ``boost::lexical_cast`` when set 
 a data_ptr or data_map.
 
 Bool values will result in either "true" or "false" when substituted. data_list or
-data_map values will cause a TemplateException to the thrown if you attempt to
+data_map values will cause a TemplateException to be thrown if you attempt to
 substitute them as a variable.
 
 Subtemplates
@@ -254,6 +275,8 @@ error.
 Known Issues
 ==================
 - "defined" pseudo-function is broken, always returning true.
+- Stripping of newlines after statements on a line by themselves does not work correctly
+  for CRLF line endings.
 
 */
 #pragma once
@@ -477,6 +500,7 @@ namespace impl {
 		virtual std::string getvalue();
 		virtual bool empty();
 		std::string eval(data_map & data, data_list * param_values=nullptr);
+		void eval(std::ostream &stream, data_map & data, data_list * param_values=nullptr);
         string_vector & params() { return m_params; }
     };
 
@@ -492,6 +516,6 @@ namespace impl {
 
 	// The big daddy. Pass in the template and data,
 	// and get out a completed doc.
-	void parse(std::ostream &stream, std::string templ_text, data_map &data) ;
-    std::string parse(std::string templ_text, data_map &data);
+	void parse(std::ostream &stream, const std::string &templ_text, data_map &data) ;
+    std::string parse(const std::string &templ_text, data_map &data);
 }

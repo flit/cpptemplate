@@ -6,6 +6,7 @@
 
 #include <sstream>
 #include <algorithm>
+#include <stack>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
 
@@ -112,6 +113,8 @@ namespace impl
 		NODE_TYPE_TEXT,
 		NODE_TYPE_VAR,
 		NODE_TYPE_IF,
+        NODE_TYPE_ELIF,
+        NODE_TYPE_ELSE,
 		NODE_TYPE_FOR,
         NODE_TYPE_DEF,
 		NODE_TYPE_ENDIF,
@@ -180,11 +183,15 @@ namespace impl
 	class NodeIf : public NodeParent
 	{
         token_vector m_expr ;
+        node_ptr m_else_if;
+        NodeType m_if_type;
 	public:
-		NodeIf(token_vector & expr, uint32_t line=0) : NodeParent(line), m_expr(expr){}
+		NodeIf(token_vector & expr, uint32_t line=0);
 		NodeType gettype();
+        void set_else_if(node_ptr else_if);
 		void gettext(std::ostream &stream, data_map &data);
 		bool is_true(data_map &data);
+        bool is_else();
 	};
 
     // def block
@@ -218,14 +225,11 @@ namespace impl
     };
 
     inline bool is_key_path_char(char c);
-    inline TokenType get_keyword_token(const std::string & s);
+    TokenType get_keyword_token(const std::string & s);
     void create_id_token(token_vector & tokens, const std::string & s);
     token_vector tokenize_statement(const std::string & text);
-
     std::string strip_comment(const std::string & text);
     inline size_t count_newlines(const std::string & text);
-
-	void parse_tree(node_vector &nodes, node_vector &tree, NodeType until=NODE_TYPE_NONE) ;
 	node_vector & tokenize(std::string text, node_vector &nodes) ;
 
 }
@@ -356,9 +360,7 @@ namespace impl
     DataTemplate::DataTemplate(const std::string & templateText)
     {
         // Parse the template
-		impl::node_vector nodes ;
-		impl::tokenize(templateText, nodes) ;
-		impl::parse_tree(nodes, m_tree) ;
+		impl::tokenize(templateText, m_tree);
     }
 
     std::string DataTemplate::getvalue()
@@ -372,6 +374,13 @@ namespace impl
 	}
 
     std::string DataTemplate::eval(data_map & data, data_list * param_values)
+    {
+        std::ostringstream stream;
+        eval(stream, data, param_values);
+		return stream.str() ;
+    }
+
+    void DataTemplate::eval(std::ostream &stream, data_map & data, data_list * param_values)
     {
         data_map * use_data = &data;
 
@@ -401,12 +410,10 @@ namespace impl
 
         // Recursively calls gettext on each node in the tree.
         // gettext returns the appropriate text for that node.
-        std::ostringstream stream;
 		for (size_t i = 0 ; i < m_tree.size() ; ++i)
 		{
 			m_tree[i]->gettext(stream, *use_data) ;
 		}
-		return stream.str() ;
     }
 
     bool data_ptr::is_template() const
@@ -618,11 +625,7 @@ namespace impl
                     break;
 
                 case KEY_PATH_STATE:
-                    if (is_key_path_char(c))
-                    {
-                        continue;
-                    }
-                    else
+                    if (!is_key_path_char(c))
                     {
                         create_id_token(tokens, text.substr(pos, i-pos));
 
@@ -654,7 +657,6 @@ namespace impl
                             {
                                 case '=':
                                     tokens.emplace_back(EQ_TOKEN);
-                                    state = INIT_STATE;
                                     break;
                                 default:
                                     throw TemplateException("unexpected '=' character");
@@ -665,13 +667,11 @@ namespace impl
                             {
                                 case '=':
                                     tokens.emplace_back(NEQ_TOKEN);
-                                    state = INIT_STATE;
                                     break;
                                 default:
                                     tokens.emplace_back(NOT_TOKEN);
 
                                     // Reprocess this char in the initial state.
-                                    state = INIT_STATE;
                                     --i;
                                     break;
                             }
@@ -681,7 +681,6 @@ namespace impl
                             {
                                 case '&':
                                     tokens.emplace_back(AND_TOKEN);
-                                    state = INIT_STATE;
                                     break;
                                 default:
                                     throw TemplateException("unexpected '&' character");
@@ -692,7 +691,6 @@ namespace impl
                             {
                                 case '|':
                                     tokens.emplace_back(OR_TOKEN);
-                                    state = INIT_STATE;
                                     break;
                                 default:
                                     throw TemplateException("unexpected '|' character");
@@ -701,6 +699,7 @@ namespace impl
                         default:
                             throw TemplateException("internal error: unexpected first op char");
                     }
+                    state = INIT_STATE;
                     break;
             }
         }
@@ -1018,10 +1017,31 @@ namespace impl
 	}
 
 	// NodeIf
+    NodeIf::NodeIf(token_vector & expr, uint32_t line)
+    :   NodeParent(line),
+        m_expr(expr),
+        m_else_if(nullptr),
+        m_if_type(NODE_TYPE_IF)
+    {
+        if (expr[0].get_type() == ELIF_TOKEN)
+        {
+            m_if_type = NODE_TYPE_ELIF;
+        }
+        else if (expr[0].get_type() == ELSE_TOKEN)
+        {
+            m_if_type = NODE_TYPE_ELSE;
+        }
+    }
+
 	NodeType NodeIf::gettype()
 	{
-		return NODE_TYPE_IF ;
+		return m_if_type ;
 	}
+
+    void NodeIf::set_else_if(node_ptr else_if)
+    {
+        m_else_if = else_if;
+    }
 
 	void NodeIf::gettext( std::ostream &stream, data_map &data )
 	{
@@ -1032,6 +1052,10 @@ namespace impl
 				m_children[j]->gettext(stream, data) ;
 			}
 		}
+        else if (m_else_if)
+        {
+            m_else_if->gettext(stream, data);
+        }
 	}
 
 	bool NodeIf::is_true( data_map &data )
@@ -1039,7 +1063,20 @@ namespace impl
         try
         {
             TokenIterator it(m_expr);
-            it.match(IF_TOKEN, "expected 'if'");
+            if (m_if_type == NODE_TYPE_IF)
+            {
+                it.match(IF_TOKEN, "expected 'if' keyword");
+            }
+            else if (m_if_type == NODE_TYPE_ELIF)
+            {
+                it.match(ELIF_TOKEN, "expected 'elif' keyword");
+            }
+            else if (m_if_type == NODE_TYPE_ELSE)
+            {
+                it.match(ELSE_TOKEN, "expected 'else' keyword");
+                it.match(END_TOKEN, "expected end of statement");
+                return true;
+            }
             ExprParser parser(it, data);
             data_ptr d = parser.parse_expr();
             it.match(END_TOKEN, "expected end of statement");
@@ -1052,6 +1089,11 @@ namespace impl
             throw e;
         }
 	}
+
+	bool NodeIf::is_else()
+    {
+        return m_if_type == NODE_TYPE_ELSE;
+    }
 
 	// NodeDef
     NodeDef::NodeDef(token_vector & expr, uint32_t line)
@@ -1110,44 +1152,6 @@ namespace impl
 		throw TemplateException(get_line(), "End-of-control statements have no associated text") ;
 	}
 
-	//////////////////////////////////////////////////////////////////////////
-	// parse_tree
-	// recursively parses list of nodes into a tree
-	//////////////////////////////////////////////////////////////////////////
-	void parse_tree(node_vector &nodes, node_vector &tree, NodeType until)
-	{
-		while(! nodes.empty())
-		{
-			// 'pops' first item off list
-			node_ptr node = nodes[0] ;
-			nodes.erase(nodes.begin()) ;
-
-			if (node->gettype() == NODE_TYPE_FOR)
-			{
-				node_vector children ;
-				parse_tree(nodes, children, NODE_TYPE_ENDFOR) ;
-				node->set_children(children) ;
-			}
-			else if (node->gettype() == NODE_TYPE_IF)
-			{
-				node_vector children ;
-				parse_tree(nodes, children, NODE_TYPE_ENDIF) ;
-				node->set_children(children) ;
-			}
-			else if (node->gettype() == NODE_TYPE_DEF)
-			{
-				node_vector children ;
-				parse_tree(nodes, children, NODE_TYPE_ENDDEF) ;
-				node->set_children(children) ;
-			}
-			else if (node->gettype() == until)
-			{
-				return ;
-			}
-			tree.push_back(node) ;
-		}
-	}
-
     std::string strip_comment(const std::string & text)
     {
         size_t pos = text.find("--");
@@ -1173,8 +1177,12 @@ namespace impl
         uint32_t currentLine = 1;
         try
         {
+            std::stack<std::pair<node_ptr, TokenType>> node_stack;
+            node_ptr current_node;
+            node_vector * current_nodes = &nodes;
             bool eolPrecedes = true;
             bool lastWasEol = true;
+            TokenType until = INVALID_TOKEN;
             while(! text.empty())
             {
                 size_t pos = text.find("{") ;
@@ -1182,7 +1190,7 @@ namespace impl
                 {
                     if (! text.empty())
                     {
-                        nodes.push_back(node_ptr(new NodeText(text, currentLine))) ;
+                        current_nodes->push_back(node_ptr(new NodeText(text, currentLine))) ;
                     }
                     return nodes ;
                 }
@@ -1190,7 +1198,7 @@ namespace impl
                 currentLine += count_newlines(pre_text) ;
                 if (! pre_text.empty())
                 {
-                    nodes.push_back(node_ptr(new NodeText(pre_text, currentLine))) ;
+                    current_nodes->push_back(node_ptr(new NodeText(pre_text, currentLine))) ;
                 }
 
                 // Track whether there was an EOL prior to this open brace.
@@ -1204,7 +1212,7 @@ namespace impl
                 text = text.substr(pos+1) ;
                 if (text.empty())
                 {
-                    nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
+                    current_nodes->push_back(node_ptr(new NodeText("{", currentLine))) ;
                     return nodes ;
                 }
 
@@ -1218,7 +1226,7 @@ namespace impl
                         text = text.substr(pos+1) ;
 
                         token_vector stmt_tokens = tokenize_statement(pre_text);
-                        nodes.push_back(node_ptr (new NodeVar(stmt_tokens, currentLine))) ;
+                        current_nodes->push_back(node_ptr (new NodeVar(stmt_tokens, currentLine))) ;
                     }
 
                     lastWasEol = false ;
@@ -1234,6 +1242,92 @@ namespace impl
 
                         bool eolFollows = text.size() > pos+2 && text[pos+2] == '\n' ;
 
+                        // Tokenize the control statement.
+                        token_vector stmt_tokens = tokenize_statement(strip_comment(pre_text));
+                        TokenType first_token_type = stmt_tokens[0].get_type();
+
+                        // Create control statement nodes.
+                        switch (first_token_type)
+                        {
+                            case FOR_TOKEN:
+                                node_stack.push(std::make_pair(current_node, until));
+                                current_node = node_ptr(new NodeFor(stmt_tokens, currentLine));
+                                current_nodes->push_back(current_node) ;
+                                current_nodes = &current_node->get_children();
+                                until = ENDFOR_TOKEN;
+                                break;
+
+                            case IF_TOKEN:
+                                node_stack.push(std::make_pair(current_node, until));
+                                current_node = node_ptr(new NodeIf(stmt_tokens, currentLine));
+                                current_nodes->push_back(current_node) ;
+                                current_nodes = &current_node->get_children();
+                                until = ENDIF_TOKEN;
+                                break;
+
+                            case ELIF_TOKEN:
+                            case ELSE_TOKEN:
+                            {
+                                auto current_if = dynamic_cast<NodeIf*>(current_node.get());
+                                if (!current_if)
+                                {
+                                    throw TemplateException(currentLine, "else/elif without if");
+                                }
+
+                                if (current_if->is_else())
+                                {
+                                    throw TemplateException(currentLine, "if already has else");
+                                }
+
+                                current_node = node_ptr(new NodeIf(stmt_tokens, currentLine));
+                                current_if->set_else_if(current_node);
+                                current_nodes = &current_node->get_children();
+                                break;
+                            }
+
+                            case DEF_TOKEN:
+                                node_stack.push(std::make_pair(current_node, until));
+                                current_node = node_ptr(new NodeDef(stmt_tokens, currentLine));
+                                current_nodes->push_back(current_node) ;
+                                current_nodes = &current_node->get_children();
+                                until = ENDDEF_TOKEN;
+                                break;
+
+                            case ENDFOR_TOKEN:
+                            case ENDIF_TOKEN:
+                            case ENDDEF_TOKEN:
+                                if (until == first_token_type)
+                                {
+                                    assert(!node_stack.empty());
+                                    auto top = node_stack.top();
+                                    node_stack.pop();
+                                    if (top.first)
+                                    {
+                                        current_node = top.first;
+                                        current_nodes = &top.first->get_children();
+                                        until = top.second;
+                                    }
+                                    else
+                                    {
+                                        current_node.reset();
+                                        current_nodes = &nodes;
+                                        until = INVALID_TOKEN;
+                                    }
+                                }
+                                else
+                                {
+                                    throw TemplateException(currentLine, "unexpected end statement");
+                                }
+                                break;
+
+                            case END_TOKEN:
+                                throw TemplateException(currentLine, "empty control statement");
+                                break;
+
+                            default:
+                                throw TemplateException(currentLine, "Unrecognized control statement");
+                        }
+
                         // Chop off following eol if this control statement is on a line by itself.
                         if (eolPrecedes && eolFollows)
                         {
@@ -1243,37 +1337,6 @@ namespace impl
                         }
 
                         text = text.substr(pos+2) ;
-
-                        // Tokenize the control statement.
-                        token_vector stmt_tokens = tokenize_statement(strip_comment(pre_text));
-
-                        // Create control statement nodes.
-                        switch (stmt_tokens[0].get_type())
-                        {
-                            case FOR_TOKEN:
-                                nodes.push_back(node_ptr (new NodeFor(stmt_tokens, currentLine))) ;
-                                break;
-                            case IF_TOKEN:
-                                nodes.push_back(node_ptr (new NodeIf(stmt_tokens, currentLine))) ;
-                                break;
-                            case DEF_TOKEN:
-                                nodes.push_back(node_ptr (new NodeDef(stmt_tokens, currentLine))) ;
-                                break;
-                            case ENDFOR_TOKEN:
-                                nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDFOR, currentLine))) ;
-                                break;
-                            case ENDIF_TOKEN:
-                                nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDIF, currentLine))) ;
-                                break;
-                            case ENDDEF_TOKEN:
-                                nodes.push_back(node_ptr (new NodeEnd(NODE_TYPE_ENDDEF, currentLine))) ;
-                                break;
-                            case END_TOKEN:
-                                throw TemplateException(currentLine, "empty control statement");
-                                break;
-                            default:
-                                throw TemplateException(currentLine, "Unrecognized control statement");
-                        }
 
                         currentLine += lineCount;
                     }
@@ -1306,7 +1369,7 @@ namespace impl
                 }
                 else
                 {
-                    nodes.push_back(node_ptr(new NodeText("{", currentLine))) ;
+                    current_nodes->push_back(node_ptr(new NodeText("{", currentLine))) ;
                 }
             }
             return nodes ;
@@ -1328,27 +1391,12 @@ namespace impl
 	*  3. resolves template
 	*  4. returns converted text
 	************************************************************************/
-    std::string parse(std::string templ_text, data_map &data)
+    std::string parse(const std::string &templ_text, data_map &data)
 	{
-		std::ostringstream stream ;
-		parse(stream, templ_text, data) ;
-		return stream.str() ;
+		return DataTemplate(templ_text).eval(data);
 	}
-	void parse(std::ostream &stream, std::string templ_text, data_map &data)
+	void parse(std::ostream &stream, const std::string &templ_text, data_map &data)
 	{
-		impl::node_vector nodes ;
-		impl::tokenize(templ_text, nodes) ;
-		impl::node_vector tree ;
-		impl::parse_tree(nodes, tree) ;
-
-		for (size_t i = 0 ; i < tree.size() ; ++i)
-		{
-			// Recursively calls gettext on each node in the tree.
-			// gettext returns the appropriate text for that node.
-			// for text, itself;
-			// for variable, substitution;
-			// for control statement, recursively gets kids
-			tree[i]->gettext(stream, data) ;
-		}
+        DataTemplate(templ_text).eval(stream, data);
 	}
 }
