@@ -36,7 +36,7 @@ THE SOFTWARE.
 Requirements
 ==================
 1. The boost library.
-2. Compiler with C++11 support (this could be easily ifdef'd to support C++03).
+2. Compiler with C++11 support.
 
 Usage
 =======================
@@ -94,6 +94,12 @@ This also applies for cases where the open brace of the control statement is at 
 start of a line and the close brace is at the end of another line. In addition, this will
 work for multiple consecutive control statements as long as they completely occupy the
 lines on which they reside with no intervening space.
+
+For additional control over newlines, you can place a ">" character as the last character
+before the closing brace sequence of a variable substitution or control statement  (i.e.,
+"%}" or "$}". This will cause a newline that immediately follows the "}" to be omitted
+from the output. If a newline does not follow the close brace, this option will have no
+effect.
 
 All whitespace, including newlines, is ignored in control statements. This applies to
 variable substitutions, as well. So ``{$var.name}`` and ``{$ var.name }`` are equivalent.
@@ -156,11 +162,14 @@ Inside a for statement block, a "loop" map variable is defined with these keys:
 
 Def statements are described below under the Subtemplates section.
 
-Control statements inside ``{% %}`` brackets may be commented at the end of the statement.
-This style of comment is started with ``--`` and runs to the close bracket of the statement,
-as demonstrated here::
+Control statements inside ``{% %}`` brackets may be commented with line comments. A comment
+is started with ``--`` and runs to either the close bracket of the statement or the next
+line as demonstrated here::
 
-    {% for person in people %}
+    {%
+      for person -- loop variable
+      in people -- list to loop over
+    %}
     Name: {$person.name}
     {% endfor -- end the person loop %}
 

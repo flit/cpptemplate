@@ -216,12 +216,18 @@ namespace impl
 	};
 
     // Lexer states for statement tokenizer.
-    enum param_lexer_state_t
+    enum lexer_state_t
     {
         INIT_STATE,             //!< Initial state, skip whitespace, process single char tokens.
         KEY_PATH_STATE,         //!< Scan a key path.
         STRING_LITERAL_STATE,   //!< Scan a string literal.
-        OPERATOR_STATE,         //!< Scan an operator.
+        COMMENT_STATE,          //!< Single-line comment.
+    };
+
+    struct KeywordDef
+    {
+        TokenType tok;
+        const char * keyword;
     };
 
     class TemplateParser
@@ -247,14 +253,14 @@ namespace impl
         void parse_comment();
 
         void push_node(Node * new_node, TokenType until);
-        void check_omit_eol(size_t pos);
+        void check_omit_eol(size_t pos, bool force_omit);
     };
 
     inline bool is_key_path_char(char c);
     TokenType get_keyword_token(const std::string & s);
     void create_id_token(token_vector & tokens, const std::string & s);
+    int append_string_escape(std::string & str, std::function<char(int)> peek);
     token_vector tokenize_statement(const std::string & text);
-    std::string strip_comment(const std::string & text);
     inline size_t count_newlines(const std::string & text);
 
 }
@@ -550,12 +556,6 @@ namespace impl
         return (isalnum(c) || c == '.' || c == '_');
     }
 
-    struct KeywordDef
-    {
-        TokenType tok;
-        const char * keyword;
-    };
-
     const KeywordDef k_keywords[] = {
             { TRUE_TOKEN,   "true" },
             { FALSE_TOKEN,  "false" },
@@ -601,14 +601,46 @@ namespace impl
         }
     }
 
+    int append_string_escape(std::string & str, std::function<char(int)> peek)
+    {
+        char esc = peek(1);
+        std::string hex;
+        int n=2;
+        switch (esc)
+        {
+            // standard C escape sequences
+            case 'a': esc = '\a'; break;
+            case 'b': esc = '\b'; break;
+            case 'f': esc = '\f'; break;
+            case 'n': esc = '\n'; break;
+            case 'r': esc = '\r'; break;
+            case 't': esc = '\t'; break;
+            case 'v': esc = '\v'; break;
+            case '0': esc = '\0'; break;
+            // handle hex escapes like \x2a
+            case 'x':
+                for (; std::isxdigit(peek(n)); ++n)
+                {
+                    hex += peek(n);
+                }
+                esc = static_cast<char>(hex.empty() ? 0 : std::stoul(hex, nullptr, 16));
+                break;
+        }
+        str += esc;
+        return n-1;
+    }
+
     token_vector tokenize_statement(const std::string & text)
     {
         token_vector tokens;
-        param_lexer_state_t state=INIT_STATE;
+        lexer_state_t state=INIT_STATE;
         int i=0;
         uint32_t pos=0;
         char str_open_quote=0;
-        char first_op_char=0;
+        std::string str_literal;
+
+        // closure to get the next char without advancing
+        auto peek = [&](int n=1) { return i+n < text.size() ? text[i+n] : 0; };
 
         for (; i < text.size(); ++i)
         {
@@ -633,19 +665,47 @@ namespace impl
                     }
                     else if (c == '\"' || c == '\'')
                     {
-                        // Set the start pos to after the open quote.
-                        pos = i + 1;
                         str_open_quote = c;
+                        str_literal.clear();
                         state = STRING_LITERAL_STATE;
                     }
-                    else if (c == '=' || c == '!' || c == '&' || c == '|')
+                    else if (c == '=' && peek() == '=')
                     {
-                        first_op_char = c;
-                        state = OPERATOR_STATE;
+                        tokens.emplace_back(EQ_TOKEN);
+                        ++i;
+                    }
+                    else if (c == '!')
+                    {
+                        if (peek() == '=')
+                        {
+                            tokens.emplace_back(EQ_TOKEN);
+                            ++i;
+                        }
+                        else
+                        {
+                            tokens.emplace_back(NOT_TOKEN);
+                        }
+                    }
+                    else if (c == '&' && peek() == '&')
+                    {
+                        tokens.emplace_back(AND_TOKEN);
+                        ++i;
+                    }
+                    else if (c == '|' && peek() == '|')
+                    {
+                        tokens.emplace_back(OR_TOKEN);
+                        ++i;
+                    }
+                    else if (c == '-' && peek() == '-')
+                    {
+                        state = COMMENT_STATE;
                     }
                     else
                     {
-                        throw TemplateException("unexpected character");
+                        str_literal = "unexpected character '";
+                        str_literal += c;
+                        str_literal += "'";
+                        throw TemplateException(str_literal);
                     }
                     break;
 
@@ -664,67 +724,24 @@ namespace impl
                     if (c == str_open_quote)
                     {
                         // Create the string literal token and return to init state.
-                        std::string x = text.substr(pos, i-pos);
-                        tokens.emplace_back(STRING_LITERAL_TOKEN, x);
+                        tokens.emplace_back(STRING_LITERAL_TOKEN, str_literal);
                         state = INIT_STATE;
                     }
                     else if (c == '\\')
                     {
-                        // TODO: handle string literal escapes
+                        i += append_string_escape(str_literal, peek);
+                    }
+                    else
+                    {
+                        str_literal += c;
                     }
                     break;
 
-                case OPERATOR_STATE:
-                    switch (first_op_char)
+                case COMMENT_STATE:
+                    if (c == '\n')
                     {
-                        case '=':
-                            switch (c)
-                            {
-                                case '=':
-                                    tokens.emplace_back(EQ_TOKEN);
-                                    break;
-                                default:
-                                    throw TemplateException("unexpected '=' character");
-                            }
-                            break;
-                        case '!':
-                            switch (c)
-                            {
-                                case '=':
-                                    tokens.emplace_back(NEQ_TOKEN);
-                                    break;
-                                default:
-                                    tokens.emplace_back(NOT_TOKEN);
-
-                                    // Reprocess this char in the initial state.
-                                    --i;
-                                    break;
-                            }
-                            break;
-                        case '&':
-                            switch (c)
-                            {
-                                case '&':
-                                    tokens.emplace_back(AND_TOKEN);
-                                    break;
-                                default:
-                                    throw TemplateException("unexpected '&' character");
-                            }
-                            break;
-                        case '|':
-                            switch (c)
-                            {
-                                case '|':
-                                    tokens.emplace_back(OR_TOKEN);
-                                    break;
-                                default:
-                                    throw TemplateException("unexpected '|' character");
-                            }
-                            break;
-                        default:
-                            throw TemplateException("internal error: unexpected first op char");
+                        state = INIT_STATE;
                     }
-                    state = INIT_STATE;
                     break;
             }
         }
@@ -737,10 +754,6 @@ namespace impl
         else if (state == STRING_LITERAL_STATE)
         {
             throw TemplateException("unterminated string literal");
-        }
-        else if (state == OPERATOR_STATE)
-        {
-            throw TemplateException("unexpected character");
         }
 
         return tokens;
@@ -1177,17 +1190,6 @@ namespace impl
 		throw TemplateException(get_line(), "End-of-control statements have no associated text") ;
 	}
 
-    std::string strip_comment(const std::string & text)
-    {
-        size_t pos = text.find("--");
-        if (pos == std::string::npos)
-        {
-            return boost::trim_copy(text);
-        }
-
-        return boost::trim_copy(text.substr(0, pos));
-    }
-
     inline size_t count_newlines(const std::string & text)
     {
         return std::count(text.begin(), text.end(), '\n');
@@ -1229,10 +1231,6 @@ namespace impl
                 }
                 std::string pre_text = m_text.substr(0, pos) ;
                 m_current_line += count_newlines(pre_text) ;
-                if (! pre_text.empty())
-                {
-                    m_current_nodes->push_back(node_ptr(new NodeText(pre_text, m_current_line))) ;
-                }
 
                 // Track whether there was an EOL prior to this open brace.
                 bool newLastWasEol = pos > 0 && m_text[pos-1] == '\n';
@@ -1240,6 +1238,21 @@ namespace impl
                 if (pos > 0)
                 {
                     m_last_was_eol = newLastWasEol;
+                }
+
+                bool has_kill_ws = m_text.size() > pos+2 && m_text[pos+2] == '<';
+                if (has_kill_ws)
+                {
+                    // remove whitespace back to the last newline
+                    while (std::isspace(pre_text.back()) && pre_text.back() != '\n')
+                    {
+                        pre_text.pop_back();
+                    }
+                }
+
+                if (! pre_text.empty())
+                {
+                    m_current_nodes->push_back(node_ptr(new NodeText(pre_text, m_current_line))) ;
                 }
 
                 m_text = m_text.substr(pos+1) ;
@@ -1284,7 +1297,14 @@ namespace impl
         }
 
         std::string var_text = m_text.substr(1, pos-1);
-        m_text = m_text.substr(pos+1) ;
+
+        bool has_kill_newline = !var_text.empty() && var_text.back() == '>';
+        if (has_kill_newline)
+        {
+            var_text.pop_back();
+        }
+
+        m_text = m_text.substr(pos + 1 + (has_kill_newline ? 1 : 0)) ;
 
         token_vector stmt_tokens = tokenize_statement(var_text);
         m_current_nodes->push_back(node_ptr (new NodeVar(stmt_tokens, m_current_line))) ;
@@ -1311,10 +1331,15 @@ namespace impl
         }
 
         std::string stmt_text = m_text.substr(1, pos-1) ;
+        bool has_kill_newline = !stmt_text.empty() && stmt_text.back() == '>';
+        if (has_kill_newline)
+        {
+            stmt_text.pop_back();
+        }
         uint32_t lineCount = count_newlines(stmt_text) ;
 
         // Tokenize the control statement.
-        token_vector stmt_tokens = tokenize_statement(strip_comment(stmt_text));
+        token_vector stmt_tokens = tokenize_statement(stmt_text);
         if (stmt_tokens.empty())
         {
             throw TemplateException(m_current_line, "empty statement block");
@@ -1391,7 +1416,7 @@ namespace impl
         }
 
         // Chop off following eol if this control statement is on a line by itself.
-        check_omit_eol(pos);
+        check_omit_eol(pos, has_kill_newline);
 
         m_current_line += lineCount;
     }
@@ -1407,16 +1432,16 @@ namespace impl
         std::string comment_text = m_text.substr(1, pos-1) ;
         m_current_line += count_newlines(comment_text) ;
 
-        check_omit_eol(pos);
+        check_omit_eol(pos, false);
     }
 
-    void TemplateParser::check_omit_eol(size_t pos)
+    void TemplateParser::check_omit_eol(size_t pos, bool force_omit)
     {
         pos += 2;
         bool eol_follows = m_text.size() > pos && m_text[pos] == '\n' ;
 
         // Chop off following eol if this block is on a line by itself.
-        if (m_eol_precedes && eol_follows)
+        if (force_omit || (m_eol_precedes && eol_follows))
         {
             ++pos ;
             ++m_current_line ;
