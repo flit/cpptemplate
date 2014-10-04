@@ -224,13 +224,38 @@ namespace impl
         OPERATOR_STATE,         //!< Scan an operator.
     };
 
+    class TemplateParser
+    {
+        std::string m_text;
+        node_vector & m_top_nodes;
+        uint32_t m_current_line;
+        std::stack<std::pair<node_ptr, TokenType>> m_node_stack;
+        node_ptr m_current_node;
+        node_vector * m_current_nodes;
+        bool m_eol_precedes;
+        bool m_last_was_eol;
+        TokenType m_until;
+
+    public:
+        TemplateParser(const std::string & text, node_vector & nodes);
+
+        node_vector & parse();
+
+    private:
+        void parse_var();
+        void parse_stmt();
+        void parse_comment();
+
+        void push_node(Node * new_node, TokenType until);
+        void check_omit_eol(size_t pos);
+    };
+
     inline bool is_key_path_char(char c);
     TokenType get_keyword_token(const std::string & s);
     void create_id_token(token_vector & tokens, const std::string & s);
     token_vector tokenize_statement(const std::string & text);
     std::string strip_comment(const std::string & text);
     inline size_t count_newlines(const std::string & text);
-	node_vector & tokenize(std::string text, node_vector &nodes) ;
 
 }
 
@@ -360,7 +385,7 @@ namespace impl
     DataTemplate::DataTemplate(const std::string & templateText)
     {
         // Parse the template
-		impl::tokenize(templateText, m_tree);
+        impl::TemplateParser(templateText, m_tree).parse();
     }
 
     std::string DataTemplate::getvalue()
@@ -1172,214 +1197,234 @@ namespace impl
 	// tokenize
 	// parses a template into nodes (text, for, if, variable, def)
 	//////////////////////////////////////////////////////////////////////////
-	node_vector & tokenize(std::string text, node_vector &nodes)
-	{
-        uint32_t currentLine = 1;
+
+    TemplateParser::TemplateParser(const std::string & text, node_vector & nodes)
+    :   m_text(text),
+        m_top_nodes(nodes),
+        m_current_line(1),
+        m_node_stack(),
+        m_current_node(),
+        m_current_nodes(&m_top_nodes),
+        m_eol_precedes(true),
+        m_last_was_eol(true),
+        m_until(INVALID_TOKEN)
+    {
+    }
+
+    node_vector & TemplateParser::parse()
+    {
         try
         {
-            std::stack<std::pair<node_ptr, TokenType>> node_stack;
-            node_ptr current_node;
-            node_vector * current_nodes = &nodes;
-            bool eolPrecedes = true;
-            bool lastWasEol = true;
-            TokenType until = INVALID_TOKEN;
-            while(! text.empty())
+            while(! m_text.empty())
             {
-                size_t pos = text.find("{") ;
+                // search for the start of a block
+                size_t pos = m_text.find("{") ;
                 if (pos == std::string::npos)
                 {
-                    if (! text.empty())
+                    if (! m_text.empty())
                     {
-                        current_nodes->push_back(node_ptr(new NodeText(text, currentLine))) ;
+                        m_current_nodes->push_back(node_ptr(new NodeText(m_text, m_current_line))) ;
                     }
-                    return nodes ;
+                    return m_top_nodes ;
                 }
-                std::string pre_text = text.substr(0, pos) ;
-                currentLine += count_newlines(pre_text) ;
+                std::string pre_text = m_text.substr(0, pos) ;
+                m_current_line += count_newlines(pre_text) ;
                 if (! pre_text.empty())
                 {
-                    current_nodes->push_back(node_ptr(new NodeText(pre_text, currentLine))) ;
+                    m_current_nodes->push_back(node_ptr(new NodeText(pre_text, m_current_line))) ;
                 }
 
                 // Track whether there was an EOL prior to this open brace.
-                bool newLastWasEol = pos > 0 && text[pos-1] == '\n';
-                eolPrecedes = (pos == 0 && lastWasEol) || newLastWasEol;
+                bool newLastWasEol = pos > 0 && m_text[pos-1] == '\n';
+                m_eol_precedes = (pos == 0 && m_last_was_eol) || newLastWasEol;
                 if (pos > 0)
                 {
-                    lastWasEol = newLastWasEol;
+                    m_last_was_eol = newLastWasEol;
                 }
 
-                text = text.substr(pos+1) ;
-                if (text.empty())
+                m_text = m_text.substr(pos+1) ;
+                if (m_text.empty())
                 {
-                    current_nodes->push_back(node_ptr(new NodeText("{", currentLine))) ;
-                    return nodes ;
+                    m_current_nodes->push_back(node_ptr(new NodeText("{", m_current_line))) ;
+                    return m_top_nodes ;
                 }
 
-                // variable
-                if (text[0] == '$')
+                // process a block
+                switch (m_text[0])
                 {
-                    pos = text.find("}") ;
-                    if (pos != std::string::npos)
+                    case '$':
+                        parse_var();
+                        break;
+                    case '%':
+                        parse_stmt();
+                        break;
+                    case '#':
+                        parse_comment();
+                        break;
+                    default:
+                        m_current_nodes->push_back(node_ptr(new NodeText("{", m_current_line))) ;
+                }
+            }
+
+            return m_top_nodes;
+        }
+        catch (TemplateException e)
+        {
+            e.set_line_if_missing(m_current_line);
+            throw e;
+        }
+    }
+
+    void TemplateParser::parse_var()
+    {
+        size_t pos = m_text.find("}") ;
+        if (pos == std::string::npos)
+        {
+            throw TemplateException(m_current_line, "unterminated variable block");
+        }
+
+        std::string var_text = m_text.substr(1, pos-1);
+        m_text = m_text.substr(pos+1) ;
+
+        token_vector stmt_tokens = tokenize_statement(var_text);
+        m_current_nodes->push_back(node_ptr (new NodeVar(stmt_tokens, m_current_line))) ;
+
+        m_current_line += count_newlines(var_text);
+        m_last_was_eol = false ;
+    }
+
+    void TemplateParser::push_node(Node * new_node, TokenType until)
+    {
+        m_node_stack.push(std::make_pair(m_current_node, m_until));
+        m_current_node = node_ptr(new_node);
+        m_current_nodes->push_back(m_current_node) ;
+        m_current_nodes = &m_current_node->get_children();
+        m_until = until;
+    }
+
+    void TemplateParser::parse_stmt()
+    {
+        size_t pos = m_text.find("%}") ;
+        if (pos == std::string::npos)
+        {
+            throw TemplateException(m_current_line, "unterminated statement block");
+        }
+
+        std::string stmt_text = m_text.substr(1, pos-1) ;
+        uint32_t lineCount = count_newlines(stmt_text) ;
+
+        // Tokenize the control statement.
+        token_vector stmt_tokens = tokenize_statement(strip_comment(stmt_text));
+        if (stmt_tokens.empty())
+        {
+            throw TemplateException(m_current_line, "empty statement block");
+        }
+        TokenType first_token_type = stmt_tokens[0].get_type();
+
+        // Create control statement nodes.
+        switch (first_token_type)
+        {
+            case FOR_TOKEN:
+                push_node(new NodeFor(stmt_tokens, m_current_line), ENDFOR_TOKEN);
+                break;
+
+            case IF_TOKEN:
+                push_node(new NodeIf(stmt_tokens, m_current_line), ENDIF_TOKEN);
+                break;
+
+            case ELIF_TOKEN:
+            case ELSE_TOKEN:
+            {
+                auto current_if = dynamic_cast<NodeIf*>(m_current_node.get());
+                if (!current_if)
+                {
+                    throw TemplateException(m_current_line, "else/elif without if");
+                }
+
+                if (current_if->is_else())
+                {
+                    throw TemplateException(m_current_line, "if already has else");
+                }
+
+                m_current_node = node_ptr(new NodeIf(stmt_tokens, m_current_line));
+                current_if->set_else_if(m_current_node);
+                m_current_nodes = &m_current_node->get_children();
+                break;
+            }
+
+            case DEF_TOKEN:
+                push_node(new NodeDef(stmt_tokens, m_current_line), ENDDEF_TOKEN);
+                break;
+
+            case ENDFOR_TOKEN:
+            case ENDIF_TOKEN:
+            case ENDDEF_TOKEN:
+                if (m_until == first_token_type)
+                {
+                    assert(!m_node_stack.empty());
+                    auto top = m_node_stack.top();
+                    m_node_stack.pop();
+                    if (top.first)
                     {
-                        pre_text = text.substr(1, pos-1);
-                        text = text.substr(pos+1) ;
-
-                        token_vector stmt_tokens = tokenize_statement(pre_text);
-                        current_nodes->push_back(node_ptr (new NodeVar(stmt_tokens, currentLine))) ;
-                    }
-
-                    lastWasEol = false ;
-                }
-                // control statement
-                else if (text[0] == '%')
-                {
-                    pos = text.find("%}") ;
-                    if (pos != std::string::npos)
-                    {
-                        pre_text = text.substr(1, pos-1) ;
-                        uint32_t lineCount = count_newlines(pre_text) ;
-
-                        bool eolFollows = text.size() > pos+2 && text[pos+2] == '\n' ;
-
-                        // Tokenize the control statement.
-                        token_vector stmt_tokens = tokenize_statement(strip_comment(pre_text));
-                        TokenType first_token_type = stmt_tokens[0].get_type();
-
-                        // Create control statement nodes.
-                        switch (first_token_type)
-                        {
-                            case FOR_TOKEN:
-                                node_stack.push(std::make_pair(current_node, until));
-                                current_node = node_ptr(new NodeFor(stmt_tokens, currentLine));
-                                current_nodes->push_back(current_node) ;
-                                current_nodes = &current_node->get_children();
-                                until = ENDFOR_TOKEN;
-                                break;
-
-                            case IF_TOKEN:
-                                node_stack.push(std::make_pair(current_node, until));
-                                current_node = node_ptr(new NodeIf(stmt_tokens, currentLine));
-                                current_nodes->push_back(current_node) ;
-                                current_nodes = &current_node->get_children();
-                                until = ENDIF_TOKEN;
-                                break;
-
-                            case ELIF_TOKEN:
-                            case ELSE_TOKEN:
-                            {
-                                auto current_if = dynamic_cast<NodeIf*>(current_node.get());
-                                if (!current_if)
-                                {
-                                    throw TemplateException(currentLine, "else/elif without if");
-                                }
-
-                                if (current_if->is_else())
-                                {
-                                    throw TemplateException(currentLine, "if already has else");
-                                }
-
-                                current_node = node_ptr(new NodeIf(stmt_tokens, currentLine));
-                                current_if->set_else_if(current_node);
-                                current_nodes = &current_node->get_children();
-                                break;
-                            }
-
-                            case DEF_TOKEN:
-                                node_stack.push(std::make_pair(current_node, until));
-                                current_node = node_ptr(new NodeDef(stmt_tokens, currentLine));
-                                current_nodes->push_back(current_node) ;
-                                current_nodes = &current_node->get_children();
-                                until = ENDDEF_TOKEN;
-                                break;
-
-                            case ENDFOR_TOKEN:
-                            case ENDIF_TOKEN:
-                            case ENDDEF_TOKEN:
-                                if (until == first_token_type)
-                                {
-                                    assert(!node_stack.empty());
-                                    auto top = node_stack.top();
-                                    node_stack.pop();
-                                    if (top.first)
-                                    {
-                                        current_node = top.first;
-                                        current_nodes = &top.first->get_children();
-                                        until = top.second;
-                                    }
-                                    else
-                                    {
-                                        current_node.reset();
-                                        current_nodes = &nodes;
-                                        until = INVALID_TOKEN;
-                                    }
-                                }
-                                else
-                                {
-                                    throw TemplateException(currentLine, "unexpected end statement");
-                                }
-                                break;
-
-                            case END_TOKEN:
-                                throw TemplateException(currentLine, "empty control statement");
-                                break;
-
-                            default:
-                                throw TemplateException(currentLine, "Unrecognized control statement");
-                        }
-
-                        // Chop off following eol if this control statement is on a line by itself.
-                        if (eolPrecedes && eolFollows)
-                        {
-                            ++pos ;
-                            ++currentLine ;
-                            lastWasEol = true ;
-                        }
-
-                        text = text.substr(pos+2) ;
-
-                        currentLine += lineCount;
+                        m_current_node = top.first;
+                        m_current_nodes = &m_current_node->get_children();
+                        m_until = top.second;
                     }
                     else
                     {
-                        throw TemplateException(currentLine, "missing close statement block");
-                    }
-                }
-                // comment
-                else if (text[0] == '#')
-                {
-                    pos = text.find("#}") ;
-                    if (pos != std::string::npos)
-                    {
-                        pre_text = text.substr(1, pos-1) ;
-                        currentLine += count_newlines(pre_text) ;
-
-                        bool eolFollows = text.size() > pos+2 && text[pos+2] == '\n' ;
-
-                        // Chop off following eol if this comment is on a line by itself.
-                        if (eolPrecedes && eolFollows)
-                        {
-                            ++pos ;
-                            ++currentLine ;
-                            lastWasEol = true ;
-                        }
-
-                        text = text.substr(pos+2) ;
+                        m_current_node.reset();
+                        m_current_nodes = &m_top_nodes;
+                        m_until = INVALID_TOKEN;
                     }
                 }
                 else
                 {
-                    current_nodes->push_back(node_ptr(new NodeText("{", currentLine))) ;
+                    throw TemplateException(m_current_line, "unexpected end statement");
                 }
-            }
-            return nodes ;
+                break;
+
+            case END_TOKEN:
+                throw TemplateException(m_current_line, "empty control statement");
+
+            default:
+                throw TemplateException(m_current_line, "Unrecognized control statement");
         }
-        catch (TemplateException e)
+
+        // Chop off following eol if this control statement is on a line by itself.
+        check_omit_eol(pos);
+
+        m_current_line += lineCount;
+    }
+
+    void TemplateParser::parse_comment()
+    {
+        size_t pos = m_text.find("#}") ;
+        if (pos != std::string::npos)
         {
-            e.set_line_if_missing(currentLine);
-            throw e;
+            return;
         }
-	}
+
+        std::string comment_text = m_text.substr(1, pos-1) ;
+        m_current_line += count_newlines(comment_text) ;
+
+        check_omit_eol(pos);
+    }
+
+    void TemplateParser::check_omit_eol(size_t pos)
+    {
+        pos += 2;
+        bool eol_follows = m_text.size() > pos && m_text[pos] == '\n' ;
+
+        // Chop off following eol if this block is on a line by itself.
+        if (m_eol_precedes && eol_follows)
+        {
+            ++pos ;
+            ++m_current_line ;
+            m_last_was_eol = true ;
+        }
+
+        m_text = m_text.substr(pos) ;
+    }
 
 } // namespace impl
 
