@@ -853,7 +853,7 @@ namespace impl
                 }
                 else if (path == "empty")
                 {
-                    result = params[0]->getlist().empty();
+                    result = params[0]->empty();
                 }
                 else if (path == "defined")
                 {
