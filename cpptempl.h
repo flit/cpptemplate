@@ -324,6 +324,7 @@ namespace cpptempl
 		virtual std::string getvalue();
 		virtual data_list& getlist();
 		virtual data_map& getmap() ;
+        virtual void dump(int indent=0) ;
 	};
 
     class DataBool : public Data
@@ -333,6 +334,7 @@ namespace cpptempl
         DataBool(bool value) : m_value(value) {}
         std::string getvalue();
         bool empty();
+        virtual void dump(int indent=0) ;
     };
 
 	class DataValue : public Data
@@ -343,6 +345,7 @@ namespace cpptempl
 		DataValue(std::string&& value) : m_value(value){}
         std::string getvalue();
 		bool empty();
+        virtual void dump(int indent=0) ;
 	};
 
 	class DataList : public Data
@@ -353,6 +356,7 @@ namespace cpptempl
 		DataList(data_list &&items) : m_items(items){}
 		data_list& getlist() ;
 		bool empty();
+        void dump(int indent=0);
 	};
 
 	class data_ptr {
@@ -412,6 +416,8 @@ namespace cpptempl
 	private:
 		std::unordered_map<std::string, data_ptr> data;
         data_map * parent;
+
+        friend class DataMap;
 	};
 
 	class DataMap : public Data
@@ -422,6 +428,7 @@ namespace cpptempl
 		DataMap(data_map &&items) : m_items(items){}
 		data_map& getmap();
 		bool empty();
+        void dump(int indent=0);
 	};
 
 	template<> void data_ptr::operator = (const bool& data);
@@ -486,6 +493,8 @@ namespace cpptempl
         return data_ptr(boost::lexical_cast<std::string>(val));
     }
 
+    void dump_data(data_ptr data);
+
 namespace impl {
 
 	// node classes
@@ -511,6 +520,7 @@ namespace impl {
 		std::string eval(data_map & data, data_list * param_values=nullptr);
 		void eval(std::ostream &stream, data_map & data, data_list * param_values=nullptr);
         string_vector & params() { return m_params; }
+        void dump(int indent=0);
     };
 
     inline data_ptr make_template(const std::string & templateText, const string_vector * param_names=nullptr)

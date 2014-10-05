@@ -256,6 +256,7 @@ namespace impl
         void check_omit_eol(size_t pos, bool force_omit);
     };
 
+    std::string indent(int level);
     inline bool is_key_path_char(char c);
     TokenType get_keyword_token(const std::string & s);
     void create_id_token(token_vector & tokens, const std::string & s);
@@ -349,6 +350,10 @@ namespace impl
 	{
 		throw TemplateException("Data item is not a dictionary") ;
 	}
+    void Data::dump(int indent)
+    {
+        std::cout << getvalue() << std::endl;
+    }
     // data bool
     std::string DataBool::getvalue()
 	{
@@ -358,6 +363,10 @@ namespace impl
 	{
 		return !m_value;
 	}
+    void DataBool::dump(int indent)
+    {
+        std::cout << "(bool)" << getvalue() << std::endl;
+    }
 	// data value
     std::string DataValue::getvalue()
 	{
@@ -367,6 +376,10 @@ namespace impl
 	{
 		return m_value.empty();
 	}
+    void DataValue::dump(int indent)
+    {
+        std::cout << "\"" << getvalue() << "\"" << std::endl;
+    }
 	// data list
 	data_list& DataList::getlist()
 	{
@@ -377,6 +390,18 @@ namespace impl
 	{
 		return m_items.empty();
 	}
+
+    void DataList::dump(int indent)
+    {
+        std::cout << "(list)" << std::endl;
+        int n=0;
+        for (auto it : m_items)
+        {
+            std::cout << impl::indent(indent) << "[" << n << "]: ";
+            it->dump(indent+1);
+            ++n;
+        };
+    }
 	// data map
 	data_map& DataMap::getmap()
 	{
@@ -386,6 +411,15 @@ namespace impl
 	{
 		return m_items.empty();
 	}
+    void DataMap::dump(int indent)
+    {
+        std::cout << "(map)" << std::endl;
+        for (auto it : m_items.data)
+        {
+            std::cout << impl::indent(indent) << "[" << it.first << "]: ";
+            it.second->dump(indent+1);
+        };
+    }
 
     // data template
     DataTemplate::DataTemplate(const std::string & templateText)
@@ -403,6 +437,11 @@ namespace impl
 	{
 		return false;
 	}
+
+    void DataTemplate::dump(int indent)
+    {
+        std::cout << "(template)\n";
+    }
 
     std::string DataTemplate::eval(data_map & data, data_list * param_values)
     {
@@ -505,8 +544,22 @@ namespace impl
 		return data[sub_key]->getmap().parse_path(key.substr(index+1), create) ;
 	}
 
+    void dump_data(data_ptr data)
+    {
+        data->dump();
+    }
+
 namespace impl
 {
+    std::string indent(int level)
+    {
+        std::string result;
+        while (level--)
+        {
+            result += "    ";
+        }
+        return result;
+    }
 
     Token TokenIterator::s_endToken(END_TOKEN);
 
