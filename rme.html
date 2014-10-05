@@ -1,0 +1,721 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="Docutils 0.12: http://docutils.sourceforge.net/" />
+<title></title>
+<style type="text/css">
+
+/*
+:Author: David Goodger (goodger@python.org)
+:Id: $Id: html4css1.css 7614 2013-02-21 15:55:51Z milde $
+:Copyright: This stylesheet has been placed in the public domain.
+
+Default cascading style sheet for the HTML output of Docutils.
+
+See http://docutils.sf.net/docs/howto/html-stylesheets.html for how to
+customize this style sheet.
+*/
+
+/* used to remove borders from tables and images */
+.borderless, table.borderless td, table.borderless th {
+  border: 0 }
+
+table.borderless td, table.borderless th {
+  /* Override padding for "table.docutils td" with "! important".
+     The right padding separates the table cells. */
+  padding: 0 0.5em 0 0 ! important }
+
+.first {
+  /* Override more specific margin styles with "! important". */
+  margin-top: 0 ! important }
+
+.last, .with-subtitle {
+  margin-bottom: 0 ! important }
+
+.hidden {
+  display: none }
+
+a.toc-backref {
+  text-decoration: none ;
+  color: black }
+
+blockquote.epigraph {
+  margin: 2em 5em ; }
+
+dl.docutils dd {
+  margin-bottom: 0.5em }
+
+object[type="image/svg+xml"], object[type="application/x-shockwave-flash"] {
+  overflow: hidden;
+}
+
+/* Uncomment (and remove this text!) to get bold-faced definition list terms
+dl.docutils dt {
+  font-weight: bold }
+*/
+
+div.abstract {
+  margin: 2em 5em }
+
+div.abstract p.topic-title {
+  font-weight: bold ;
+  text-align: center }
+
+div.admonition, div.attention, div.caution, div.danger, div.error,
+div.hint, div.important, div.note, div.tip, div.warning {
+  margin: 2em ;
+  border: medium outset ;
+  padding: 1em }
+
+div.admonition p.admonition-title, div.hint p.admonition-title,
+div.important p.admonition-title, div.note p.admonition-title,
+div.tip p.admonition-title {
+  font-weight: bold ;
+  font-family: sans-serif }
+
+div.attention p.admonition-title, div.caution p.admonition-title,
+div.danger p.admonition-title, div.error p.admonition-title,
+div.warning p.admonition-title, .code .error {
+  color: red ;
+  font-weight: bold ;
+  font-family: sans-serif }
+
+/* Uncomment (and remove this text!) to get reduced vertical space in
+   compound paragraphs.
+div.compound .compound-first, div.compound .compound-middle {
+  margin-bottom: 0.5em }
+
+div.compound .compound-last, div.compound .compound-middle {
+  margin-top: 0.5em }
+*/
+
+div.dedication {
+  margin: 2em 5em ;
+  text-align: center ;
+  font-style: italic }
+
+div.dedication p.topic-title {
+  font-weight: bold ;
+  font-style: normal }
+
+div.figure {
+  margin-left: 2em ;
+  margin-right: 2em }
+
+div.footer, div.header {
+  clear: both;
+  font-size: smaller }
+
+div.line-block {
+  display: block ;
+  margin-top: 1em ;
+  margin-bottom: 1em }
+
+div.line-block div.line-block {
+  margin-top: 0 ;
+  margin-bottom: 0 ;
+  margin-left: 1.5em }
+
+div.sidebar {
+  margin: 0 0 0.5em 1em ;
+  border: medium outset ;
+  padding: 1em ;
+  background-color: #ffffee ;
+  width: 40% ;
+  float: right ;
+  clear: right }
+
+div.sidebar p.rubric {
+  font-family: sans-serif ;
+  font-size: medium }
+
+div.system-messages {
+  margin: 5em }
+
+div.system-messages h1 {
+  color: red }
+
+div.system-message {
+  border: medium outset ;
+  padding: 1em }
+
+div.system-message p.system-message-title {
+  color: red ;
+  font-weight: bold }
+
+div.topic {
+  margin: 2em }
+
+h1.section-subtitle, h2.section-subtitle, h3.section-subtitle,
+h4.section-subtitle, h5.section-subtitle, h6.section-subtitle {
+  margin-top: 0.4em }
+
+h1.title {
+  text-align: center }
+
+h2.subtitle {
+  text-align: center }
+
+hr.docutils {
+  width: 75% }
+
+img.align-left, .figure.align-left, object.align-left {
+  clear: left ;
+  float: left ;
+  margin-right: 1em }
+
+img.align-right, .figure.align-right, object.align-right {
+  clear: right ;
+  float: right ;
+  margin-left: 1em }
+
+img.align-center, .figure.align-center, object.align-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.align-left {
+  text-align: left }
+
+.align-center {
+  clear: both ;
+  text-align: center }
+
+.align-right {
+  text-align: right }
+
+/* reset inner alignment in figures */
+div.align-right {
+  text-align: inherit }
+
+/* div.align-center * { */
+/*   text-align: left } */
+
+ol.simple, ul.simple {
+  margin-bottom: 1em }
+
+ol.arabic {
+  list-style: decimal }
+
+ol.loweralpha {
+  list-style: lower-alpha }
+
+ol.upperalpha {
+  list-style: upper-alpha }
+
+ol.lowerroman {
+  list-style: lower-roman }
+
+ol.upperroman {
+  list-style: upper-roman }
+
+p.attribution {
+  text-align: right ;
+  margin-left: 50% }
+
+p.caption {
+  font-style: italic }
+
+p.credits {
+  font-style: italic ;
+  font-size: smaller }
+
+p.label {
+  white-space: nowrap }
+
+p.rubric {
+  font-weight: bold ;
+  font-size: larger ;
+  color: maroon ;
+  text-align: center }
+
+p.sidebar-title {
+  font-family: sans-serif ;
+  font-weight: bold ;
+  font-size: larger }
+
+p.sidebar-subtitle {
+  font-family: sans-serif ;
+  font-weight: bold }
+
+p.topic-title {
+  font-weight: bold }
+
+pre.address {
+  margin-bottom: 0 ;
+  margin-top: 0 ;
+  font: inherit }
+
+pre.literal-block, pre.doctest-block, pre.math, pre.code {
+  margin-left: 2em ;
+  margin-right: 2em }
+
+pre.code .ln { color: grey; } /* line numbers */
+pre.code, code { background-color: #eeeeee }
+pre.code .comment, code .comment { color: #5C6576 }
+pre.code .keyword, code .keyword { color: #3B0D06; font-weight: bold }
+pre.code .literal.string, code .literal.string { color: #0C5404 }
+pre.code .name.builtin, code .name.builtin { color: #352B84 }
+pre.code .deleted, code .deleted { background-color: #DEB0A1}
+pre.code .inserted, code .inserted { background-color: #A3D289}
+
+span.classifier {
+  font-family: sans-serif ;
+  font-style: oblique }
+
+span.classifier-delimiter {
+  font-family: sans-serif ;
+  font-weight: bold }
+
+span.interpreted {
+  font-family: sans-serif }
+
+span.option {
+  white-space: nowrap }
+
+span.pre {
+  white-space: pre }
+
+span.problematic {
+  color: red }
+
+span.section-subtitle {
+  /* font-size relative to parent (h1..h6 element) */
+  font-size: 80% }
+
+table.citation {
+  border-left: solid 1px gray;
+  margin-left: 1px }
+
+table.docinfo {
+  margin: 2em 4em }
+
+table.docutils {
+  margin-top: 0.5em ;
+  margin-bottom: 0.5em }
+
+table.footnote {
+  border-left: solid 1px black;
+  margin-left: 1px }
+
+table.docutils td, table.docutils th,
+table.docinfo td, table.docinfo th {
+  padding-left: 0.5em ;
+  padding-right: 0.5em ;
+  vertical-align: top }
+
+table.docutils th.field-name, table.docinfo th.docinfo-name {
+  font-weight: bold ;
+  text-align: left ;
+  white-space: nowrap ;
+  padding-left: 0 }
+
+/* "booktabs" style (no vertical lines) */
+table.docutils.booktabs {
+  border: 0px;
+  border-top: 2px solid;
+  border-bottom: 2px solid;
+  border-collapse: collapse;
+}
+table.docutils.booktabs * {
+  border: 0px;
+}
+table.docutils.booktabs th {
+  border-bottom: thin solid;
+  text-align: left;
+}
+
+h1 tt.docutils, h2 tt.docutils, h3 tt.docutils,
+h4 tt.docutils, h5 tt.docutils, h6 tt.docutils {
+  font-size: 100% }
+
+ul.auto-toc {
+  list-style-type: none }
+
+</style>
+</head>
+<body>
+<div class="document">
+
+
+<div class="section" id="cpptempl-2-0">
+<h1>cpptempl 2.0</h1>
+<p>This is a template engine for C++.</p>
+</div>
+<div class="section" id="copyright">
+<h1>Copyright</h1>
+<div class="line-block">
+<div class="line">Copyright (c) 2010-2014 Ryan Ginstrom</div>
+<div class="line">Copyright (c) 2014 Martinho Fernandes</div>
+<div class="line">Copyright (c) 2014 Freescale Semiconductor, Inc.</div>
+</div>
+<div class="line-block">
+<div class="line">Original author: Ryan Ginstrom</div>
+<div class="line">Additions by Martinho Fernandes</div>
+<div class="line">Extensive modifications by Chris Reed</div>
+</div>
+</div>
+<div class="section" id="license">
+<h1>License</h1>
+<p>Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the &quot;Software&quot;), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:</p>
+<p>The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.</p>
+<p>THE SOFTWARE IS PROVIDED &quot;AS IS&quot;, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.</p>
+</div>
+<div class="section" id="requirements">
+<h1>Requirements</h1>
+<ol class="arabic simple">
+<li>The boost library.</li>
+<li>Compiler with C++11 support.</li>
+</ol>
+</div>
+<div class="section" id="usage">
+<h1>Usage</h1>
+<p>Complete example:</p>
+<pre class="literal-block">
+std::string text = &quot;{% if item %}{$item}{% endif %}\n&quot;
+    &quot;{% if thing %}{$thing}{% endif %}&quot; ;
+cpptempl::data_map data ;
+data[&quot;item&quot;] = &quot;aaa&quot; ;
+data[&quot;thing&quot;] = &quot;bbb&quot; ;
+
+std::string result = cpptempl::parse(text, data) ;
+</pre>
+<p>There are two main functions that users will interact with, both called <tt class="docutils literal">parse()</tt>. They
+are in the <tt class="docutils literal">cpptempl</tt> namespace. The prototypes for these functions are as follows:</p>
+<pre class="literal-block">
+std::string parse(const std::string &amp;templ_text, data_map &amp;data);
+
+void parse(std::ostream &amp;stream, const std::string &amp;templ_text, data_map &amp;data);
+</pre>
+<p>Both take the template text as a <tt class="docutils literal"><span class="pre">std::string</span></tt> along with a <tt class="docutils literal">data_map</tt> that has the variable
+values to substitute. One form of <tt class="docutils literal">parse()</tt> simply returns the result of the template
+as another <tt class="docutils literal"><span class="pre">std::string</span></tt>.</p>
+<p>The other form takes a <tt class="docutils literal"><span class="pre">std::ostream</span></tt> reference as the first argument and writes the
+template output to that stream. This form is actually more memory efficient, because it
+does not build up the complete template output in memory as a string before returning it.</p>
+<p>Another way to use cpptempl is to create a <tt class="docutils literal">DataTemplate</tt> object. This is helpful if you
+need to use a template more than once because it only parses the template text a single
+time. Example:</p>
+<pre class="literal-block">
+cpptempl::DataTemplate tmpl(text);
+std::string result = tmpl.eval(data);
+</pre>
+<p>As with the <tt class="docutils literal">parse()</tt> functions, there are two overloads of the <tt class="docutils literal"><span class="pre">DataTemplate::eval()</span></tt>
+method. One returns the template output as a <tt class="docutils literal"><span class="pre">std::string</span></tt>, while the other accepts a
+<tt class="docutils literal"><span class="pre">std::ostream</span></tt> reference to which the output will be written.</p>
+</div>
+<div class="section" id="syntax">
+<h1>Syntax</h1>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field"><th class="field-name">Variables:</th><td class="field-body"><tt class="docutils literal">{$variable_name}</tt></td>
+</tr>
+<tr class="field"><th class="field-name">Loops:</th><td class="field-body"><tt class="docutils literal">{% for person in people %}Name: <span class="pre">{$person.name}{%</span> endfor %}</tt></td>
+</tr>
+<tr class="field"><th class="field-name">If:</th><td class="field-body"><tt class="docutils literal">{% if foo %}gorilla{% elif bar %}bonobo{% else %}orangutan{% endif %}</tt></td>
+</tr>
+<tr class="field"><th class="field-name">Def:</th><td class="field-body"><tt class="docutils literal">{% def foobar(x) %}The value of x is {$x} today{% enddef %}</tt></td>
+</tr>
+<tr class="field"><th class="field-name">Comment:</th><td class="field-body"><tt class="docutils literal">{# comment goes here #}</tt></td>
+</tr>
+</tbody>
+</table>
+<p>There are three types of statements: variable substitutions, control statements, and
+comments.</p>
+<p>For loops iterate over the <tt class="docutils literal">data_list</tt> selected by the key path named after the &quot;in&quot;
+keyword.</p>
+<p>If statements conditionally execute one section or another of the template based on
+the value of one or more Boolean expressions. As one would expect, if statements may
+have zero or more elif branches and one optional else branch.</p>
+<p>Def statements are used to create subtemplates. They are described in detail below,
+in the Subtemplates section.</p>
+<p>Anywhere a variable name is used, you may use a dotted key path to walk through the
+keys of nested <tt class="docutils literal">data_map</tt> objects. The leftmost key name is looked up in the
+<tt class="docutils literal">data_map</tt> that was passed into the <tt class="docutils literal">parse()</tt> or <tt class="docutils literal"><span class="pre">DataTemplate::eval()</span></tt> function
+call, which is called the &quot;global data map&quot;. If the specified key does not exist, its
+value is the empty string.</p>
+<p>Whitespace, including newlines, is ignored in all statements including variable
+substitutions. The only exception is in key paths. There may not be any space between
+the dots and the key names. So <tt class="docutils literal">{$var.name}</tt> and <tt class="docutils literal">{$ var.name }</tt> are equivalent,
+but <tt class="docutils literal">{$var . name}</tt> is invalid.</p>
+<div class="section" id="expressions">
+<h2>Expressions</h2>
+<p>If statements and variable substitution blocks accept arbitrary expressions. This is
+currently most useful for if statements, as the expressions are only Boolean.</p>
+<p>Operators for expressions (x and y are subexpressions):</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="25%" />
+<col width="75%" />
+</colgroup>
+<tbody valign="top">
+<tr><td><tt class="docutils literal">!x</tt></td>
+<td>True if x is empty or false</td>
+</tr>
+<tr><td><tt class="docutils literal">x == y</tt></td>
+<td>Equality</td>
+</tr>
+<tr><td><tt class="docutils literal">x != y</tt></td>
+<td>Inequality</td>
+</tr>
+<tr><td><tt class="docutils literal">x &amp;&amp; y</tt></td>
+<td>Boolean and</td>
+</tr>
+<tr><td><tt class="docutils literal">x || y</tt></td>
+<td>Boolean or</td>
+</tr>
+<tr><td><tt class="docutils literal">(x)</tt></td>
+<td>Parenthesized subexpression</td>
+</tr>
+<tr><td><tt class="docutils literal"><span class="pre">sub(x,y,...)</span></tt></td>
+<td>Subtemplate invocation with parameters</td>
+</tr>
+</tbody>
+</table>
+<p>Note that the keywords &quot;not&quot;, &quot;and&quot;, and &quot;or&quot; are also supported in place of the C-style
+operators. Thus, <tt class="docutils literal">not (x and y)</tt> is completely equivalent to <tt class="docutils literal">!(x &amp;&amp; y)</tt>.</p>
+<p>There are also a few pseudo-functions that may be used in expressions. More may be added
+later.</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="20%" />
+<col width="80%" />
+</colgroup>
+<tbody valign="top">
+<tr><td><tt class="docutils literal">count(x)</tt></td>
+<td>Returns the number of items in the specified list.</td>
+</tr>
+<tr><td><tt class="docutils literal">defined(x)</tt></td>
+<td>Returns true if the key path specifies an existing key.</td>
+</tr>
+<tr><td><tt class="docutils literal">empty(x)</tt></td>
+<td>True if the variable path x is the empty string.</td>
+</tr>
+</tbody>
+</table>
+<p>Supported value types in expressions:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="17%" />
+<col width="83%" />
+</colgroup>
+<tbody valign="top">
+<tr><td><tt class="docutils literal">key</tt></td>
+<td>Name of key in top-level data_map (simple case of key path).</td>
+</tr>
+<tr><td><tt class="docutils literal">key.path</tt></td>
+<td>Dotted path of data_map keys.</td>
+</tr>
+<tr><td><tt class="docutils literal">true</tt></td>
+<td>Boolean true.</td>
+</tr>
+<tr><td><tt class="docutils literal">false</tt></td>
+<td>Boolean false.</td>
+</tr>
+<tr><td><tt class="docutils literal">&quot;text&quot;</tt></td>
+<td>String literal with double quotes.</td>
+</tr>
+<tr><td><tt class="docutils literal">'text'</tt></td>
+<td>String literal with single quotes.</td>
+</tr>
+</tbody>
+</table>
+<p>If the expression in an if statement produces a non-Boolean value such as a string,
+then the expression is considered true if the value is not empty.</p>
+<p>String literals may include backslash escape sequences as in C/C++. All the standard
+C single-character escapes are supported. Any other character that is escaped results
+in that character.</p>
+<p>Hexadecimal character code escapes are also supported. The format is, again,
+the same as in C. The first escape character must be &quot;x&quot; and is followed by one or
+more hexadecimal digits. Hex escape sequences have no length limit and terminate
+at the first character that is not a valid hexadecimal digit. If the value
+represented by the escape sequence does not fit into an 8-bit character, only its
+lower 8 bits are inserted into the output.</p>
+</div>
+<div class="section" id="loop-variable">
+<h2>Loop variable</h2>
+<p>Inside a for statement block, a &quot;loop&quot; map variable is defined with these keys:</p>
+<table border="1" class="docutils">
+<colgroup>
+<col width="15%" />
+<col width="85%" />
+</colgroup>
+<tbody valign="top">
+<tr><td><tt class="docutils literal">index</tt></td>
+<td>Base-1 current index of loop</td>
+</tr>
+<tr><td><tt class="docutils literal">index0</tt></td>
+<td>Base-0 current index of loop</td>
+</tr>
+<tr><td><tt class="docutils literal">last</tt></td>
+<td>True if this is the last iteration through the loop</td>
+</tr>
+<tr><td><tt class="docutils literal">count</tt></td>
+<td>Total number of elements in the list</td>
+</tr>
+</tbody>
+</table>
+<p>The &quot;loop&quot; variable remains available after the for statement completes. It will also be
+accessible in the data map after the template finishes execution. Of course, a subsequent
+for loop will change the &quot;loop&quot; variable's contents.</p>
+</div>
+<div class="section" id="newline-control">
+<h2>Newline control</h2>
+<p>Control statements on a line by themselves will eat the newline following the statement.
+This also applies for cases where the open brace of the control statement is at the
+start of a line and the close brace is at the end of another line. In addition, this will
+work for multiple consecutive control statements as long as they completely occupy the
+lines on which they reside with no intervening space.</p>
+<p>For additional control over newlines, you can place a &quot;&gt;&quot; character as the last character
+before the closing brace sequence of a variable substitution or control statement  (i.e.,
+<tt class="docutils literal">%}</tt> or <tt class="docutils literal">$}</tt>). This will cause a newline that immediately follows the &quot;}&quot; to be omitted
+from the output. If a newline does not follow the close brace, this option will have no
+effect.</p>
+</div>
+<div class="section" id="comments">
+<h2>Comments</h2>
+<p>Control statements inside <tt class="docutils literal">{% %}</tt> brackets may be commented with line comments. A comment
+is started with <tt class="docutils literal"><span class="pre">--</span></tt> and runs to either the close bracket of the statement or the next
+line as demonstrated here:</p>
+<pre class="literal-block">
+{%
+  for person -- loop variable
+  in people -- list to loop over
+%}
+Name: {$person.name}
+{% endfor -- end the person loop %}
+</pre>
+<p>You may also put comments in <tt class="docutils literal">{# #}</tt> brackets. These comments may span multiple lines.
+They will not be copied to the output under any circumstances. And, as with all control
+statements, if such a comment is on a line by itself, the newline following the comment
+is absorbed and not reproduced in the output.</p>
+</div>
+</div>
+<div class="section" id="types">
+<h1>Types</h1>
+<p>All values are stored in a <tt class="docutils literal">data_ptr</tt> variant object.</p>
+<p>These are the built-in data types:</p>
+<ul class="simple">
+<li><tt class="docutils literal">bool</tt></li>
+<li><tt class="docutils literal"><span class="pre">std::string</span></tt></li>
+<li><tt class="docutils literal">data_list</tt></li>
+<li><tt class="docutils literal">data_map</tt></li>
+<li>subtemplate</li>
+</ul>
+<p>All other types are converted to strings using <tt class="docutils literal"><span class="pre">boost::lexical_cast</span></tt> when set in
+a <tt class="docutils literal">data_ptr</tt> or <tt class="docutils literal">data_map</tt>.</p>
+<p>Bool values will result in either &quot;true&quot; or &quot;false&quot; when substituted. <tt class="docutils literal">data_list</tt> or
+<tt class="docutils literal">data_map</tt> values will cause a <tt class="docutils literal">TemplateException</tt> to be thrown if you attempt to
+substitute them as a variable.</p>
+</div>
+<div class="section" id="subtemplates">
+<h1>Subtemplates</h1>
+<p>Subtemplates are a special type. They allow you to define a template once and reuse
+it multiple times by substituting it as a variable. A subtemplate is completely
+re-evaluated every time it is substituted, using the current values of any variables.
+This is particularly useful within a loop.</p>
+<p>Subtemplates may take parameters. These are defined when the subtemplate is created
+via either of the methods described below. When a subtemplate is used in a variable
+substitution in a template, you may pass values for its parameters just as you would
+for a function call.</p>
+<p>There are two ways to define a subtemplate. The first is to use the <tt class="docutils literal">make_template()</tt>
+function. It takes a <tt class="docutils literal"><span class="pre">std::string</span></tt> and returns a subtemplate <tt class="docutils literal">data_ptr</tt>, which may then
+be stored in a <tt class="docutils literal">data_map</tt>. It may also optionally be provided a vector of parameter
+name strings.</p>
+<p>The second way to create a subtemplate is to use the def statement within a template.
+Def statements define a subtemplate with the template contents between the def and
+enddef statements. The subtemplate is stored in the named variable, which may be a path.
+The elements of the key path will be created if they do not exist. As with all
+subtemplates, the contents are evaluated at the point where the def variable is used.</p>
+<p>Note that the new subtemplate will remain in the global data map after the template is
+done executing. This means it can be extracted or passed to another template.</p>
+<p>The parameters for a subtemplate may be specified in a def statement. This is done by
+listing the parameter names in parentheses after the subtemplate's key path, as shown
+in this example:</p>
+<pre class="literal-block">
+{% def mytmpl(foo, bar) %}
+foo={$foo}
+bar={$bar}
+{% enddef %}
+</pre>
+<p>To use this subtemplate, you would do something like this:</p>
+<pre class="literal-block">
+{$mytmpl(&quot;a&quot;, &quot;b&quot;)}
+</pre>
+<p>This variable substitution expression will pass the string constants &quot;a&quot; and &quot;b&quot; for the
+subtemplate parameters &quot;foo&quot; and &quot;bar&quot;, respectively. During the evaluation of the
+subtemplate, parameter variables will be set to the specified values. If there is
+already a key in the global data map with the same name as a parameter, the parameter
+will shadow the global key. The global data map is not modified permanently. Any
+parameter keys will be restored to the original state, including being undefined, once the
+subtemplate evaluation is completed. Any expression may be used to generate the parameter
+values.</p>
+</div>
+<div class="section" id="handy-functions">
+<h1>Handy Functions</h1>
+<p><tt class="docutils literal">make_data()</tt> : Feed it a bool, string, data_map, or data_list to create a data entry.
+Example:</p>
+<pre class="literal-block">
+data_map person ;
+person[&quot;name&quot;] = make_data(&quot;Bob&quot;) ;
+person[&quot;occupation&quot;] = make_data(&quot;Plumber&quot;) ;
+data_map data ;
+data[&quot;person&quot;] = make_data(person) ;
+std::string result = parse(templ_text, data) ;
+</pre>
+<p>Note that using <tt class="docutils literal">make_data()</tt> is only one method. You may also assign values directly to
+data_map elements:</p>
+<pre class="literal-block">
+data_map person;
+person[&quot;age&quot;] = 35;
+person[&quot;name&quot;] = &quot;Fred&quot;;
+person[&quot;has_pet&quot;] = true;
+</pre>
+<p><tt class="docutils literal">make_template()</tt> : Creates a subtemplate from a std::string. The template string is
+passed as the first parameter. An optional pointer to a std::string vector can be provided
+as a second parameter to specify the names of subtemplate parameters.</p>
+<p>Example of creating a subtemplate with params:</p>
+<pre class="literal-block">
+string_vector params{&quot;foo&quot;, &quot;bar&quot;};
+data_ptr subtmpl = make_template(template_text, &amp;params);
+</pre>
+</div>
+<div class="section" id="errors">
+<h1>Errors</h1>
+<p>Any template errors will result in a <tt class="docutils literal">TemplateException</tt> being thrown.</p>
+<p>The <tt class="docutils literal">TemplateException</tt> class is a subclass of <tt class="docutils literal"><span class="pre">std::exception</span></tt>, so it has a <tt class="docutils literal">what()</tt>
+method. This method will return an error string describing the error. In most cases,
+the message will be prefixed with the line number of the input template that caused the
+error.</p>
+</div>
+<div class="section" id="known-issues">
+<h1>Known Issues</h1>
+<ul class="simple">
+<li>&quot;defined&quot; pseudo-function is broken, always returning true.</li>
+<li>Stripping of newlines after statements on a line by themselves does not work correctly
+for CRLF line endings.</li>
+<li>The only way to output the variable substitution or control statement open block
+sequences is to substitute a string literal with that value, i.e. <tt class="docutils literal"><span class="pre">{$&quot;{%&quot;}</span></tt>.</li>
+<li>Nested for loops update the same &quot;loop&quot; variable.</li>
+</ul>
+</div>
+</div>
+</body>
+</html>

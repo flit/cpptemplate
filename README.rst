@@ -57,7 +57,7 @@ are in the ``cpptempl`` namespace. The prototypes for these functions are as fol
 
     void parse(std::ostream &stream, const std::string &templ_text, data_map &data);
 
-Both take the template text as a ``std::string`` along with a data_map that has the variable
+Both take the template text as a ``std::string`` along with a ``data_map`` that has the variable
 values to substitute. One form of ``parse()`` simply returns the result of the template
 as another ``std::string``.
 
@@ -65,7 +65,7 @@ The other form takes a ``std::ostream`` reference as the first argument and writ
 template output to that stream. This form is actually more memory efficient, because it
 does not build up the complete template output in memory as a string before returning it.
 
-Another way to use cpptempl is to create a DataTemplate object. This is helpful if you
+Another way to use cpptempl is to create a ``DataTemplate`` object. This is helpful if you
 need to use a template more than once because it only parses the template text a single
 time. Example::
 
@@ -89,29 +89,34 @@ Syntax
 :Comment:
     ``{# comment goes here #}``
 
-Control statements on a line by themselves will eat the newline following the statement.
-This also applies for cases where the open brace of the control statement is at the
-start of a line and the close brace is at the end of another line. In addition, this will
-work for multiple consecutive control statements as long as they completely occupy the
-lines on which they reside with no intervening space.
+There are three types of statements: variable substitutions, control statements, and
+comments.
 
-For additional control over newlines, you can place a ">" character as the last character
-before the closing brace sequence of a variable substitution or control statement  (i.e.,
-"%}" or "$}". This will cause a newline that immediately follows the "}" to be omitted
-from the output. If a newline does not follow the close brace, this option will have no
-effect.
+For loops iterate over the ``data_list`` selected by the key path named after the "in"
+keyword.
 
-All whitespace, including newlines, is ignored in control statements. This applies to
-variable substitutions, as well. So ``{$var.name}`` and ``{$ var.name }`` are equivalent.
+If statements conditionally execute one section or another of the template based on
+the value of one or more Boolean expressions. As one would expect, if statements may
+have zero or more elif branches and one optional else branch.
+
+Def statements are used to create subtemplates. They are described in detail below,
+in the Subtemplates section.
 
 Anywhere a variable name is used, you may use a dotted key path to walk through the
-keys of nested data_map objects.
+keys of nested ``data_map`` objects. The leftmost key name is looked up in the
+``data_map`` that was passed into the ``parse()`` or ``DataTemplate::eval()`` function
+call, which is called the "global data map". If the specified key does not exist, its
+value is the empty string.
 
-As one would expect, if statements may have zero or more elif branches and one optional
-else branch.
+Whitespace, including newlines, is ignored in all statements including variable
+substitutions. The only exception is in key paths. There may not be any space between
+the dots and the key names. So ``{$var.name}`` and ``{$ var.name }`` are equivalent,
+but ``{$var . name}`` is invalid.
 
+Expressions
+-----------
 If statements and variable substitution blocks accept arbitrary expressions. This is
-currently only useful for if statements, as the expressions are only Boolean.
+currently most useful for if statements, as the expressions are only Boolean.
 
 Operators for expressions (x and y are subexpressions):
 
@@ -144,13 +149,26 @@ Supported value types in expressions:
 ``key.path``    Dotted path of data_map keys.
 ``true``        Boolean true.
 ``false``       Boolean false.
-``"text"``      Quoted string with double quotes.
-``'text'``      Quoted string with single quotes.
+``"text"``      String literal with double quotes.
+``'text'``      String literal with single quotes.
 ==============  ===================================================================
 
 If the expression in an if statement produces a non-Boolean value such as a string,
 then the expression is considered true if the value is not empty.
 
+String literals may include backslash escape sequences as in C/C++. All the standard
+C single-character escapes are supported. Any other character that is escaped results
+in that character.
+
+Hexadecimal character code escapes are also supported. The format is, again,
+the same as in C. The first escape character must be "x" and is followed by one or
+more hexadecimal digits. Hex escape sequences have no length limit and terminate
+at the first character that is not a valid hexadecimal digit. If the value
+represented by the escape sequence does not fit into an 8-bit character, only its
+lower 8 bits are inserted into the output.
+
+Loop variable
+-------------
 Inside a for statement block, a "loop" map variable is defined with these keys:
 
 ==========  =======================================================
@@ -160,8 +178,26 @@ Inside a for statement block, a "loop" map variable is defined with these keys:
 ``count``   Total number of elements in the list
 ==========  =======================================================
 
-Def statements are described below under the Subtemplates section.
+The "loop" variable remains available after the for statement completes. It will also be
+accessible in the data map after the template finishes execution. Of course, a subsequent
+for loop will change the "loop" variable's contents.
 
+Newline control
+---------------
+Control statements on a line by themselves will eat the newline following the statement.
+This also applies for cases where the open brace of the control statement is at the
+start of a line and the close brace is at the end of another line. In addition, this will
+work for multiple consecutive control statements as long as they completely occupy the
+lines on which they reside with no intervening space.
+
+For additional control over newlines, you can place a ">" character as the last character
+before the closing brace sequence of a variable substitution or control statement  (i.e.,
+``%}`` or ``$}``). This will cause a newline that immediately follows the "}" to be omitted
+from the output. If a newline does not follow the close brace, this option will have no
+effect.
+
+Comments
+--------
 Control statements inside ``{% %}`` brackets may be commented with line comments. A comment
 is started with ``--`` and runs to either the close bracket of the statement or the next
 line as demonstrated here::
@@ -180,21 +216,21 @@ is absorbed and not reproduced in the output.
 
 Types
 ==================
-All values are stored in a data_ptr variant object.
+All values are stored in a ``data_ptr`` variant object.
 
-These are the built-in data types::
+These are the built-in data types:
 
-    bool
-    std::string
-    data_list
-    data_map
-    subtemplate
+- ``bool``
+- ``std::string``
+- ``data_list``
+- ``data_map``
+- subtemplate
 
 All other types are converted to strings using ``boost::lexical_cast`` when set in
-a data_ptr or data_map.
+a ``data_ptr`` or ``data_map``.
 
-Bool values will result in either "true" or "false" when substituted. data_list or
-data_map values will cause a TemplateException to be thrown if you attempt to
+Bool values will result in either "true" or "false" when substituted. ``data_list`` or
+``data_map`` values will cause a ``TemplateException`` to be thrown if you attempt to
 substitute them as a variable.
 
 Subtemplates
@@ -210,8 +246,8 @@ substitution in a template, you may pass values for its parameters just as you w
 for a function call.
 
 There are two ways to define a subtemplate. The first is to use the ``make_template()``
-function. It takes a std::string and returns a subtemplate data_ptr, which may then
-be stored in a data_map. It may also optionally be provided a vector of parameter
+function. It takes a ``std::string`` and returns a subtemplate ``data_ptr``, which may then
+be stored in a ``data_map``. It may also optionally be provided a vector of parameter
 name strings.
 
 The second way to create a subtemplate is to use the def statement within a template.
@@ -219,6 +255,9 @@ Def statements define a subtemplate with the template contents between the def a
 enddef statements. The subtemplate is stored in the named variable, which may be a path.
 The elements of the key path will be created if they do not exist. As with all
 subtemplates, the contents are evaluated at the point where the def variable is used.
+
+Note that the new subtemplate will remain in the global data map after the template is
+done executing. This means it can be extracted or passed to another template.
 
 The parameters for a subtemplate may be specified in a def statement. This is done by
 listing the parameter names in parentheses after the subtemplate's key path, as shown
@@ -254,7 +293,7 @@ Example::
     data["person"] = make_data(person) ;
     std::string result = parse(templ_text, data) ;
 
-Note that using make_data() is only one method. You may also assign values directly to
+Note that using ``make_data()`` is only one method. You may also assign values directly to
 data_map elements::
 
     data_map person;
@@ -273,9 +312,9 @@ Example of creating a subtemplate with params::
 
 Errors
 ==================
-Any template errors will result in a TemplateException being thrown.
+Any template errors will result in a ``TemplateException`` being thrown.
 
-The TemplateException class is a subclass of ``std::exception``, so it has a ``what()``
+The ``TemplateException`` class is a subclass of ``std::exception``, so it has a ``what()``
 method. This method will return an error string describing the error. In most cases,
 the message will be prefixed with the line number of the input template that caused the
 error.
@@ -285,3 +324,6 @@ Known Issues
 - "defined" pseudo-function is broken, always returning true.
 - Stripping of newlines after statements on a line by themselves does not work correctly
   for CRLF line endings.
+- The only way to output the variable substitution or control statement open block
+  sequences is to substitute a string literal with that value, i.e. ``{$"{%"}``.
+- Nested for loops update the same "loop" variable.
