@@ -676,7 +676,7 @@ namespace impl
                 {
                     hex += peek(n);
                 }
-                esc = static_cast<char>(hex.empty() ? 0 : std::stoul(hex, nullptr, 16));
+                esc = static_cast<char>(hex.empty() ? 0 : std::strtoul(hex.c_str(), nullptr, 16));
                 break;
         }
         str += esc;
@@ -1100,6 +1100,11 @@ namespace impl
                 }
             }
         }
+        catch (data_map::key_error & e)
+        {
+            // ignore exception - the for loop key variable doesn't exist, so just
+            // don't execute the for loop at all
+        }
         catch (TemplateException e)
         {
             e.set_line_if_missing(get_line());
@@ -1477,7 +1482,7 @@ namespace impl
     void TemplateParser::parse_comment()
     {
         size_t pos = m_text.find("#}") ;
-        if (pos != std::string::npos)
+        if (pos == std::string::npos)
         {
             return;
         }
