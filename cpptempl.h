@@ -366,7 +366,7 @@ namespace cpptempl
 		virtual std::string getvalue();
 		virtual data_list& getlist();
 		virtual data_map& getmap() ;
-        virtual void dump(int indent=0) ;
+        virtual void dump(int indent=0) = 0 ;
 	};
 
     class DataBool : public Data
