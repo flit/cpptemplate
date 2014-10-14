@@ -107,6 +107,7 @@ namespace impl
         const Token * get() const;
         const Token * next();
         const Token * match(TokenType tokenType, const char * failure_msg=nullptr);
+        void reset() { m_index = 0; }
 
         TokenIterator& operator ++ ();
 
@@ -330,17 +331,17 @@ namespace impl
 	}
 
 	data_ptr& data_ptr::operator = (std::string&& data) {
-		ptr.reset(new DataValue(data));
+		ptr.reset(new DataValue(std::move(data)));
         return *this;
 	}
 
 	data_ptr& data_ptr::operator = (data_map&& data) {
-		ptr.reset(new DataMap(data));
+		ptr.reset(new DataMap(std::move(data)));
         return *this;
 	}
 
 	data_ptr& data_ptr::operator = (data_list&& data) {
-		ptr.reset(new DataList(data));
+		ptr.reset(new DataList(std::move(data)));
         return *this;
 	}
 

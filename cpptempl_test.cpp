@@ -24,15 +24,16 @@
 #include "cpptempl.cpp"
 
 #define BOOST_TEST_ALTERNATIVE_INIT_API
-// #ifndef BOOST_TEST_MODULE
 #define BOOST_TEST_MODULE cpptemplTests
-// #endif
 
 #include <boost/test/unit_test.hpp>
 
 #pragma warning( disable : 4996 ) // doesn't like wcstombs
 
 #include "unit_testing.h"
+
+#include <utility>
+#include <exception>
 
 using namespace boost::unit_test;
 using namespace std ;
@@ -91,6 +92,35 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 		BOOST_CHECK_THROW( items.parse_path("xx.yy"), data_map::key_error ) ;
 		BOOST_CHECK_THROW( items.parse_path("foo.bar.yy"), data_map::key_error ) ;
 	}
+	BOOST_AUTO_TEST_CASE(test_DataMap_parent)
+	{
+		data_map items ;
+		items["key"] = "foo" ;
+		items["a"] = "zz";
+		data_ptr data(new DataMap(items)) ;
+
+		BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
+		BOOST_CHECK_EQUAL( data->getmap()["a"]->getvalue(), "zz" ) ;
+
+		data_map child;
+		child["key"] = "bar";
+		data_ptr data2(new DataMap(child)) ;
+		BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
+		BOOST_CHECK_EQUAL( data2->getmap().has("a"), false ) ;
+
+		data2->getmap().set_parent(&items);
+		BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
+		BOOST_CHECK_EQUAL( data2->getmap()["a"]->getvalue(), "zz" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_DataMap_move)
+	{
+		data_map items ;
+		items["key"] = "foo" ;
+		data_ptr data(new DataMap(std::move(items))) ;
+
+		BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
+		BOOST_CHECK( !items.has("key") ) ;
+	}
 	// DataList
 	BOOST_AUTO_TEST_CASE(test_DataList_getvalue)
 	{
@@ -114,6 +144,19 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 
 		BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
 	}
+	BOOST_AUTO_TEST_CASE(test_DataList_move)
+	{
+		data_list items ;
+		items.push_back("a");
+		items.push_back("b");
+		BOOST_CHECK_EQUAL( items.size(), 2);
+
+		data_ptr data(new DataList(std::move(items))) ;
+
+		BOOST_CHECK_EQUAL( data->getlist().size(), 2 ) ;
+		BOOST_CHECK_EQUAL( items.size(), 0 ) ;
+		BOOST_CHECK_EQUAL( data->getlist()[0]->getvalue(), "a");
+	}
 	// DataValue
 	BOOST_AUTO_TEST_CASE(test_DataValue_getvalue)
 	{
@@ -133,20 +176,30 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 
 		BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
 	}
+	BOOST_AUTO_TEST_CASE(test_DataValue_move)
+	{
+	    string foo = "foo";
+	    BOOST_CHECK_EQUAL( foo, "foo");
+
+		data_ptr data(new DataValue(std::move(foo))) ;
+
+		BOOST_CHECK_EQUAL( data->getvalue(), "foo" ) ;
+		BOOST_CHECK_EQUAL( foo.size(), 0);
+	}
 	// DataBool
 	BOOST_AUTO_TEST_CASE(test_DataBool_true)
 	{
 		data_ptr data(new DataBool(true)) ;
 
 		BOOST_CHECK_EQUAL( data->getvalue(), "true" ) ;
-		BOOST_CHECK_EQUAL( data->empty(), false ) ;
+		BOOST_CHECK( !data->empty() ) ;
 	}
 	BOOST_AUTO_TEST_CASE(test_DataBool_false)
 	{
 		data_ptr data(new DataBool(false)) ;
 
 		BOOST_CHECK_EQUAL( data->getvalue(), "false" ) ;
-		BOOST_CHECK_EQUAL( data->empty(), true ) ;
+		BOOST_CHECK( data->empty() ) ;
 	}
 	BOOST_AUTO_TEST_CASE(test_DataBool_getitem_throws)
 	{
@@ -154,112 +207,164 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 
 		BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
 	}
+	// DataTemplate
+	BOOST_AUTO_TEST_CASE(test_DataTemplate_empty)
+	{
+	    DataTemplate t("");
+	    BOOST_CHECK( !t.empty() );  // templates are always non-empty
+	    BOOST_CHECK_EQUAL( t.getvalue(), "" );
+	    BOOST_CHECK_EQUAL( t.params().size(), 0u );
+	}
 BOOST_AUTO_TEST_SUITE_END()
 
-// BOOST_AUTO_TEST_SUITE( TestCppParseVal )
-//
-// 	BOOST_AUTO_TEST_CASE(test_quoted)
-// 	{
-// 		data_map data ;
-// 		data["foo"] = make_data("bar") ;
-// 		data_ptr value = parse_val("\"foo\"", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getvalue(), "foo" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_value)
-// 	{
-// 		data_map data ;
-// 		data["foo"] = make_data("bar") ;
-// 		data_ptr value = parse_val("foo", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getvalue(), "bar" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_not_found)
-// 	{
-// 		data_map data ;
-// 		data["foo"] = make_data("bar") ;
-// 		data_ptr value = parse_val("kettle", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getvalue(), "{$kettle}" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_not_found_dotted)
-// 	{
-// 		data_map data ;
-// 		data["foo"] = make_data("bar") ;
-// 		data_ptr value = parse_val("kettle.black", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getvalue(), "{$kettle.black}" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_my_ax)
-// 	{
-// 		data_map data ;
-// 		data["item"] = make_data("my ax") ;
-// 		BOOST_CHECK_EQUAL( parse_val("item", data)->getvalue(), "my ax" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_list)
-// 	{
-// 		data_map data ;
-// 		data_list items ;
-// 		items.push_back(make_data("bar")) ;
-// 		data["foo"] = data_ptr(new DataList(items)) ;
-// 		data_ptr value = parse_val("foo", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getlist().size(), 1u ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_dotted)
-// 	{
-// 		data_map data ;
-// 		data_map subdata ;
-// 		subdata["b"] = data_ptr(new DataValue("c")) ;
-// 		data["a"] = data_ptr(new DataMap(subdata)) ;
-// 		data_ptr value = parse_val("a.b", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getvalue(), "c" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_double_dotted)
-// 	{
-// 		data_map data ;
-// 		data_map sub_data ;
-// 		data_map sub_sub_data ;
-// 		sub_sub_data["c"] = data_ptr(new DataValue("d")) ;
-// 		sub_data["b"] = data_ptr(new DataMap(sub_sub_data)) ;
-// 		data["a"] = data_ptr(new DataMap(sub_data)) ;
-// 		data_ptr value = parse_val("a.b.c", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getvalue(), "d" ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_dotted_to_list)
-// 	{
-// 		data_list friends ;
-// 		friends.push_back(make_data("Bob")) ;
-// 		data_map person ;
-// 		person["friends"] = make_data(friends) ;
-// 		data_map data ;
-// 		data["person"] = make_data(person) ;
-// 		data_ptr value = parse_val("person.friends", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getlist().size(), 1u ) ;
-// 	}
-// 	BOOST_AUTO_TEST_CASE(test_dotted_to_dict_list)
-// 	{
-// 		data_map bob ;
-// 		bob["name"] = make_data("Bob") ;
-// 		data_map betty ;
-// 		betty["name"] = make_data("Betty") ;
-// 		data_list friends ;
-// 		friends.push_back(make_data(bob)) ;
-// 		friends.push_back(make_data(betty)) ;
-// 		data_map person ;
-// 		person["friends"] = make_data(friends) ;
-// 		data_map data ;
-// 		data["person"] = make_data(person) ;
-// 		data_ptr value = parse_val("person.friends", data) ;
-//
-// 		BOOST_CHECK_EQUAL( value->getlist()[0]->getmap()["name"]->getvalue(), "Bob" ) ;
-// 	}
-// BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE( TestCppStmtTokenizer )
+    BOOST_AUTO_TEST_CASE(test_empty)
+    {
+        token_vector t = tokenize_statement("");
+        BOOST_CHECK_EQUAL( t.size(), 0u );
+    }
+    BOOST_AUTO_TEST_CASE(test_empty_comment)
+    {
+        token_vector t = tokenize_statement("-- hi there");
+        BOOST_CHECK_EQUAL( t.size(), 0u );
+    }
+    BOOST_AUTO_TEST_CASE(test_key_path)
+    {
+        token_vector t = tokenize_statement("foo");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), KEY_PATH_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "foo");
 
- BOOST_AUTO_TEST_SUITE( TestCppNode )
+        t = tokenize_statement(" foo.bar ");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), KEY_PATH_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "foo.bar");
+
+        t = tokenize_statement("   foo.monkey.helicopter  \n  spaz.umbrella");
+        BOOST_CHECK_EQUAL( t.size(), 2u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), KEY_PATH_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "foo.monkey.helicopter");
+        BOOST_CHECK_EQUAL( t[1].get_type(), KEY_PATH_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_value(), "spaz.umbrella");
+    }
+    BOOST_AUTO_TEST_CASE(test_str_lit)
+    {
+        token_vector t = tokenize_statement("'abc'");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "abc");
+
+        t = tokenize_statement("\"abc\"");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "abc");
+    }
+    BOOST_AUTO_TEST_CASE(test_str_lit_spaces)
+    {
+        token_vector t = tokenize_statement("'abc def'");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "abc def");
+
+        t = tokenize_statement("\"abc def\"");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "abc def");
+    }
+    BOOST_AUTO_TEST_CASE(test_str_lit_escapes)
+    {
+        token_vector t = tokenize_statement("'\\x41'");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "A");
+
+        t = tokenize_statement("'he said,\\n\\\"hello\\\"'");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "he said,\n\"hello\"");
+    }
+    BOOST_AUTO_TEST_CASE(test_bool_lit)
+    {
+        token_vector t = tokenize_statement("true false");
+        BOOST_CHECK_EQUAL( t.size(), 2u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), TRUE_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), FALSE_TOKEN);
+    }
+    BOOST_AUTO_TEST_CASE(test_op)
+    {
+        token_vector t = tokenize_statement("== != && || and or ! not ( ) ,");
+        BOOST_CHECK_EQUAL( t.size(), 11u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), EQ_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), NEQ_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), AND_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), OR_TOKEN);
+        BOOST_CHECK_EQUAL( t[4].get_type(), AND_TOKEN);
+        BOOST_CHECK_EQUAL( t[5].get_type(), OR_TOKEN);
+        BOOST_CHECK_EQUAL( t[6].get_type(), NOT_TOKEN);
+        BOOST_CHECK_EQUAL( t[7].get_type(), NOT_TOKEN);
+        BOOST_CHECK_EQUAL( t[8].get_type(), OPEN_PAREN_TOKEN);
+        BOOST_CHECK_EQUAL( t[9].get_type(), CLOSE_PAREN_TOKEN);
+        BOOST_CHECK_EQUAL( t[10].get_type(), COMMA_TOKEN);
+
+        t = tokenize_statement("==!=&&||and or!not(),");
+        BOOST_CHECK_EQUAL( t.size(), 11u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), EQ_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), NEQ_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), AND_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), OR_TOKEN);
+        BOOST_CHECK_EQUAL( t[4].get_type(), AND_TOKEN);
+        BOOST_CHECK_EQUAL( t[5].get_type(), OR_TOKEN);
+        BOOST_CHECK_EQUAL( t[6].get_type(), NOT_TOKEN);
+        BOOST_CHECK_EQUAL( t[7].get_type(), NOT_TOKEN);
+        BOOST_CHECK_EQUAL( t[8].get_type(), OPEN_PAREN_TOKEN);
+        BOOST_CHECK_EQUAL( t[9].get_type(), CLOSE_PAREN_TOKEN);
+        BOOST_CHECK_EQUAL( t[10].get_type(), COMMA_TOKEN);
+    }
+    BOOST_AUTO_TEST_CASE(test_kwd)
+    {
+        token_vector t = tokenize_statement("for in if elif else def endfor endif enddef");
+        BOOST_CHECK_EQUAL( t.size(), 9u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), FOR_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), IN_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), IF_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), ELIF_TOKEN);
+        BOOST_CHECK_EQUAL( t[4].get_type(), ELSE_TOKEN);
+        BOOST_CHECK_EQUAL( t[5].get_type(), DEF_TOKEN);
+        BOOST_CHECK_EQUAL( t[6].get_type(), ENDFOR_TOKEN);
+        BOOST_CHECK_EQUAL( t[7].get_type(), ENDIF_TOKEN);
+        BOOST_CHECK_EQUAL( t[8].get_type(), ENDDEF_TOKEN);
+    }
+    BOOST_AUTO_TEST_CASE(test_token_iterator_empty)
+    {
+        token_vector t = tokenize_statement("");
+        TokenIterator i(t);
+        BOOST_CHECK_EQUAL(i.size(), 0u);
+        BOOST_CHECK(i.empty());
+        BOOST_CHECK(!i.is_valid());
+        BOOST_CHECK_EQUAL(i.get()->get_type(), END_TOKEN);
+        ++i;
+        BOOST_CHECK_EQUAL(i.get()->get_type(), END_TOKEN);
+        BOOST_CHECK_THROW(i.match(EQ_TOKEN), TemplateException);
+    }
+    BOOST_AUTO_TEST_CASE(test_token_iterator_notempty)
+    {
+        token_vector t = tokenize_statement("key.path == 'str'");
+        TokenIterator i(t);
+        BOOST_CHECK_EQUAL(i.size(), 3u);
+        BOOST_CHECK(!i.empty());
+        BOOST_CHECK(i.is_valid());
+        BOOST_CHECK_EQUAL(i.get()->get_type(), KEY_PATH_TOKEN);
+        ++i;
+        BOOST_CHECK(i.is_valid());
+        BOOST_CHECK_EQUAL(i.get()->get_type(), EQ_TOKEN);
+        BOOST_CHECK_EQUAL(i.match(EQ_TOKEN)->get_type(), EQ_TOKEN);
+        BOOST_CHECK(i.is_valid());
+        BOOST_CHECK_EQUAL(i.get()->get_type(), STRING_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL(i.match(STRING_LITERAL_TOKEN)->get_type(), STRING_LITERAL_TOKEN);
+    }
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( TestCppNode )
 
  	// NodeVar
  	BOOST_AUTO_TEST_CASE(TestNodeVarType)
@@ -367,12 +472,6 @@ BOOST_AUTO_TEST_SUITE_END()
 		data["items"] = make_data(items) ;
 		BOOST_CHECK_EQUAL( gettext(node, data), "1. first 2. second " ) ;
 	}
-// 	BOOST_AUTO_TEST_CASE(TestNodeForLoopTextVarDottedKeyAndVal)
-// 	{
-// 		NodeFor node(tokenize_statement("for friend in person.friends"), true) ;
-// 		BOOST_CHECK_EQUAL( node.m_key, "person.friends" ) ;
-// 		BOOST_CHECK_EQUAL( node.m_val, "friend" ) ;
-// 	}
 	BOOST_AUTO_TEST_CASE(TestNodeForLoopTextVarDotted)
 	{
 		node_vector children ;
@@ -500,7 +599,6 @@ BOOST_AUTO_TEST_SUITE_END()
 		node->set_children(children) ;
 		data_map data ;
 		data["item"] = make_data("foo") ;
-		dump_data(data);
 		BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
 	}
 
@@ -528,7 +626,216 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE_END()
 
- BOOST_AUTO_TEST_SUITE( TestCppParser )
+BOOST_AUTO_TEST_SUITE( TestCppExprParser )
+
+    BOOST_AUTO_TEST_CASE(test_get_var_value_simple)
+    {
+        token_vector v;
+        TokenIterator t(v);
+        data_map d;
+        d["item"] = "a";
+        ExprParser p(t, d);
+        data_list params;
+        data_ptr r = p.get_var_value("item", params);
+        BOOST_CHECK_EQUAL( r->getvalue(), "a");
+    }
+    BOOST_AUTO_TEST_CASE(test_get_var_value_dotted)
+    {
+        token_vector v;
+        TokenIterator t(v);
+        data_map d;
+        data_map x;
+        x["a"] = "a";
+        d["x"] = x;
+        ExprParser p(t, d);
+        data_list params;
+        data_ptr r = p.get_var_value("x.a", params);
+        BOOST_CHECK_EQUAL( r->getvalue(), "a");
+    }
+    BOOST_AUTO_TEST_CASE(test_get_var_value_fn_count)
+    {
+        token_vector v;
+        TokenIterator t(v);
+        data_map d;
+        data_list a;
+        a.push_back("1");
+        a.push_back("2");
+        a.push_back("3");
+        ExprParser p(t, d);
+        data_list params;
+        params.push_back(a);
+        data_ptr r = p.get_var_value("count", params);
+        BOOST_CHECK_EQUAL( r->getvalue(), "3");
+    }
+    BOOST_AUTO_TEST_CASE(test_get_var_value_fn_empty)
+    {
+        token_vector v;
+        TokenIterator t(v);
+        data_map d;
+        ExprParser p(t, d);
+        data_list params;
+        params.push_back("");
+        data_ptr r = p.get_var_value("empty", params);
+        BOOST_CHECK_EQUAL( r->getvalue(), "true");
+        params[0] = "x";
+        data_ptr m = p.get_var_value("empty", params);
+        BOOST_CHECK_EQUAL( m->getvalue(), "false");
+    }
+    BOOST_AUTO_TEST_CASE(test_get_var_value_fn_defined)
+    {
+        // Placeholder until defined() is fixed.
+    }
+    BOOST_AUTO_TEST_CASE(test_str_lit)
+    {
+        token_vector v = tokenize_statement("'hi'");
+        TokenIterator t(v);
+        data_map d;
+        ExprParser p(t, d);
+        data_ptr r = p.parse_expr();
+        BOOST_CHECK_EQUAL( r->getvalue(), "hi");
+    }
+    BOOST_AUTO_TEST_CASE(test_and)
+    {
+        token_vector v = tokenize_statement("a and b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = false;
+        d["b"] = false;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = false;
+        d["b"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_or)
+    {
+        token_vector v = tokenize_statement("a or b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = false;
+        d["b"] = false;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = false;
+        d["b"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_or_value)
+    {
+        token_vector v = tokenize_statement("a or b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "x";
+        d["b"] = "";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "x");
+        d["a"] = "";
+        d["b"] = "y";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "y");
+    }
+    BOOST_AUTO_TEST_CASE(test_equal)
+    {
+        token_vector v = tokenize_statement("a == b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "x";
+        d["b"] = "y";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = "y";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_not_equal)
+    {
+        token_vector v = tokenize_statement("a != b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "x";
+        d["b"] = "y";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = "y";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+    }
+    BOOST_AUTO_TEST_CASE(test_not)
+    {
+        token_vector v = tokenize_statement("not a");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = true;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = false;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_parens)
+    {
+        token_vector v = tokenize_statement("(a)");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "xyzzy";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "xyzzy");
+    }
+    BOOST_AUTO_TEST_CASE(test_parens_or)
+    {
+        token_vector v = tokenize_statement("(a || b) == z");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "";
+        d["b"] = "foo";
+        d["z"] = "xyzzy";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["z"] = "foo";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = "bar";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["z"] = "bar";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_and_or)
+    {
+        token_vector v = tokenize_statement("a && b || c");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = true;
+        d["b"] = true;
+        d["c"] = false;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = false;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["c"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+
+BOOST_AUTO_TEST_SUITE_END()
+
+BOOST_AUTO_TEST_SUITE( TestCppParser )
 
  	BOOST_AUTO_TEST_CASE(test_empty)
  	{
@@ -657,7 +964,7 @@ BOOST_AUTO_TEST_SUITE_END()
 		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[2], data), "}" ) ;
 	}
 
- BOOST_AUTO_TEST_SUITE_END()
+BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 
@@ -916,6 +1223,45 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 
 		data["bar"] = true;
 		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_example_for_loop_var_restore)
+	{
+		// The text template
+		string text = "{% for x in items %}.{$loop.index}"
+		                "{% for y in more %}:{$loop.index}{% endfor %}"
+		                "-{$loop.index}{% endfor %}";
+		// Data to feed the template engine
+		data_list items;
+		items.push_back("a");
+		items.push_back("b");
+		data_list more;
+		more.push_back("1");
+		more.push_back("2");
+		more.push_back("3");
+		cpptempl::data_map data ;
+		data["items"] = items;
+		data["more"] = more;
+
+		// parse the template with the supplied data dictionary
+		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), ".1:1:2:3-1.2:1:2:3-2" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_example_def)
+	{
+		// The text template
+		string text = "{% def foo %}hello world{% enddef %}{$foo}";
+		// Data to feed the template engine
+		cpptempl::data_map data ;
+		// parse the template with the supplied data dictionary
+		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello world" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_example_def_param)
+	{
+		// The text template
+		string text = "{% def foo(p) %}hello {$p} world{% enddef %}{$foo('happy')}|{$foo('sad')}";
+		// Data to feed the template engine
+		cpptempl::data_map data ;
+		// parse the template with the supplied data dictionary
+		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello happy world|hello sad world" ) ;
 	}
 BOOST_AUTO_TEST_SUITE_END()
 

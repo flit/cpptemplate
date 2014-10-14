@@ -384,7 +384,7 @@ namespace cpptempl
         std::string m_value ;
 	public:
 		DataValue(const std::string& value) : m_value(value){}
-		DataValue(std::string&& value) : m_value(value){}
+		DataValue(std::string&& value) : m_value(std::move(value)){}
         std::string getvalue();
 		bool empty();
         virtual void dump(int indent=0) ;
@@ -395,7 +395,7 @@ namespace cpptempl
 		data_list m_items ;
 	public:
 		DataList(const data_list &items) : m_items(items){}
-		DataList(data_list &&items) : m_items(items){}
+		DataList(data_list &&items) : m_items(std::move(items)){}
 		data_list& getlist() ;
 		bool empty();
         void dump(int indent=0);
@@ -467,7 +467,7 @@ namespace cpptempl
 		data_map m_items ;
 	public:
 		DataMap(const data_map &items) : m_items(items){}
-		DataMap(data_map &&items) : m_items(items){}
+		DataMap(data_map &&items) : m_items(std::move(items)){}
 		data_map& getmap();
 		bool empty();
         void dump(int indent=0);
@@ -556,7 +556,7 @@ namespace impl {
     public:
 		DataTemplate(const std::string & templateText);
 		DataTemplate(const impl::node_vector &tree) : m_tree(tree) {}
-		DataTemplate(impl::node_vector &&tree) : m_tree(tree) {}
+		DataTemplate(impl::node_vector &&tree) : m_tree(std::move(tree)) {}
 		virtual std::string getvalue();
 		virtual bool empty();
 		std::string eval(data_map & data, data_list * param_values=nullptr);
