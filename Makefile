@@ -36,11 +36,15 @@ clean:
 	@echo "Cleaning output..."
 	@rm -rf *.o
 	@rm -rf *.d
+	@rm -f $(TARGET)
 
+.PHONY: test testv
 test: all
+	./cpptempl_test
+testv: all
 	./cpptempl_test -l test_suite
 
-cpptempl_test: $(OBJECTS)
+$(TARGET): $(OBJECTS)
 	$(CXX) $(LDFLAGS) $(OBJECTS) $(LIBRARIES) -o $@
 
 # Include dependency files.
