@@ -1380,7 +1380,7 @@ namespace impl
             var_text.pop_back();
         }
 
-        bool eol_follows = m_text.size() > pos && m_text[pos] == '\n' ;
+        bool eol_follows = m_text.size() > pos+1 && m_text[pos+1] == '\n' ;
         m_text = m_text.substr(pos + 1 + (has_kill_newline && eol_follows ? 1 : 0)) ;
 
         token_vector stmt_tokens = tokenize_statement(var_text);
@@ -1417,79 +1417,75 @@ namespace impl
 
         // Tokenize the control statement.
         token_vector stmt_tokens = tokenize_statement(stmt_text);
-        if (stmt_tokens.empty())
+        if (!stmt_tokens.empty())
         {
-            throw TemplateException(m_current_line, "empty statement block");
-        }
-        TokenType first_token_type = stmt_tokens[0].get_type();
+            TokenType first_token_type = stmt_tokens[0].get_type();
 
-        // Create control statement nodes.
-        switch (first_token_type)
-        {
-            case FOR_TOKEN:
-                push_node(new NodeFor(stmt_tokens, m_node_stack.empty(), m_current_line), ENDFOR_TOKEN);
-                break;
-
-            case IF_TOKEN:
-                push_node(new NodeIf(stmt_tokens, m_current_line), ENDIF_TOKEN);
-                break;
-
-            case ELIF_TOKEN:
-            case ELSE_TOKEN:
+            // Create control statement nodes.
+            switch (first_token_type)
             {
-                auto current_if = dynamic_cast<NodeIf*>(m_current_node.get());
-                if (!current_if)
+                case FOR_TOKEN:
+                    push_node(new NodeFor(stmt_tokens, m_node_stack.empty(), m_current_line), ENDFOR_TOKEN);
+                    break;
+
+                case IF_TOKEN:
+                    push_node(new NodeIf(stmt_tokens, m_current_line), ENDIF_TOKEN);
+                    break;
+
+                case ELIF_TOKEN:
+                case ELSE_TOKEN:
                 {
-                    throw TemplateException(m_current_line, "else/elif without if");
-                }
-
-                if (current_if->is_else())
-                {
-                    throw TemplateException(m_current_line, "if already has else");
-                }
-
-                m_current_node = node_ptr(new NodeIf(stmt_tokens, m_current_line));
-                current_if->set_else_if(m_current_node);
-                m_current_nodes = &m_current_node->get_children();
-                break;
-            }
-
-            case DEF_TOKEN:
-                push_node(new NodeDef(stmt_tokens, m_current_line), ENDDEF_TOKEN);
-                break;
-
-            case ENDFOR_TOKEN:
-            case ENDIF_TOKEN:
-            case ENDDEF_TOKEN:
-                if (m_until == first_token_type)
-                {
-                    assert(!m_node_stack.empty());
-                    auto top = m_node_stack.top();
-                    m_node_stack.pop();
-                    if (top.first)
+                    auto current_if = dynamic_cast<NodeIf*>(m_current_node.get());
+                    if (!current_if)
                     {
-                        m_current_node = top.first;
-                        m_current_nodes = &m_current_node->get_children();
-                        m_until = top.second;
+                        throw TemplateException(m_current_line, "else/elif without if");
+                    }
+
+                    if (current_if->is_else())
+                    {
+                        throw TemplateException(m_current_line, "if already has else");
+                    }
+
+                    m_current_node = node_ptr(new NodeIf(stmt_tokens, m_current_line));
+                    current_if->set_else_if(m_current_node);
+                    m_current_nodes = &m_current_node->get_children();
+                    break;
+                }
+
+                case DEF_TOKEN:
+                    push_node(new NodeDef(stmt_tokens, m_current_line), ENDDEF_TOKEN);
+                    break;
+
+                case ENDFOR_TOKEN:
+                case ENDIF_TOKEN:
+                case ENDDEF_TOKEN:
+                    if (m_until == first_token_type)
+                    {
+                        assert(!m_node_stack.empty());
+                        auto top = m_node_stack.top();
+                        m_node_stack.pop();
+                        if (top.first)
+                        {
+                            m_current_node = top.first;
+                            m_current_nodes = &m_current_node->get_children();
+                            m_until = top.second;
+                        }
+                        else
+                        {
+                            m_current_node.reset();
+                            m_current_nodes = &m_top_nodes;
+                            m_until = INVALID_TOKEN;
+                        }
                     }
                     else
                     {
-                        m_current_node.reset();
-                        m_current_nodes = &m_top_nodes;
-                        m_until = INVALID_TOKEN;
+                        throw TemplateException(m_current_line, "unexpected end statement");
                     }
-                }
-                else
-                {
-                    throw TemplateException(m_current_line, "unexpected end statement");
-                }
-                break;
+                    break;
 
-            case END_TOKEN:
-                throw TemplateException(m_current_line, "empty control statement");
-
-            default:
-                throw TemplateException(m_current_line, "Unrecognized control statement");
+                default:
+                    throw TemplateException(m_current_line, "invalid control statement");
+            }
         }
 
         // Chop off following eol if this control statement is on a line by itself.

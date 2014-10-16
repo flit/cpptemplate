@@ -741,6 +741,26 @@ BOOST_AUTO_TEST_SUITE( TestCppExprParser )
         t.reset();
         BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
     }
+    BOOST_AUTO_TEST_CASE(test_and_multiline_commented)
+    {
+        token_vector v = tokenize_statement("a -- this is a\nand -- could be &&\nb -- the second operand");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = false;
+        d["b"] = false;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = false;
+        d["b"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
     BOOST_AUTO_TEST_CASE(test_or)
     {
         token_vector v = tokenize_statement("a or b");
@@ -1052,20 +1072,76 @@ BOOST_AUTO_TEST_SUITE_END()
 
 // ------------------------------------------------------------------------------------------
 
+BOOST_AUTO_TEST_SUITE(TestCppTemplateMisc)
+
+	BOOST_AUTO_TEST_CASE(test_empty_stmt)
+	{
+		string text = "aaa{%  %}bbb{$item}ccc" ;
+		data_map data ;
+		data["item"] = "xyz" ;
+		BOOST_CHECK_EQUAL( parse(text, data), "aaabbbxyzccc" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_comment_only_stmt)
+	{
+		string text = "aaa{% -- a comment! %}bbb{$item -- a comment on a var}ccc" ;
+		data_map data ;
+		data["item"] = "xyz" ;
+		BOOST_CHECK_EQUAL( parse(text, data), "aaabbbxyzccc" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_newline_elision)
+	{
+		string text = "{% if predicate >%}\n"
+		              "{$item >}\n"
+		              "{% endif %}" ;
+		data_map data ;
+		data["predicate"] = true;
+		data["item"] = "foo" ;
+		BOOST_CHECK_EQUAL( parse(text, data), "foo" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_newline_eater)
+	{
+		string text = "hello{%>%}\n"
+		              " world" ;
+		data_map data ;
+		BOOST_CHECK_EQUAL( parse(text, data), "hello world" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_newline_eater_with_comment)
+	{
+		string text = "hello{% -- get rid of following newline >%}\n"
+		              " world" ;
+		data_map data ;
+		BOOST_CHECK_EQUAL( parse(text, data), "hello world" ) ;
+	}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+// ------------------------------------------------------------------------------------------
+
 BOOST_AUTO_TEST_SUITE(TestCppTemplateIf)
 
 	BOOST_AUTO_TEST_CASE(test_if_false)
 	{
-		string text = "{% if item %}{$item}{% endif %}" ;
+		string text = "{% if predicate %}{$item}{% endif %}" ;
 		data_map data ;
-		data["item"] = make_data("") ;
+		data["predicate"] = false;
+		data["item"] = make_data("foo") ;
 		string actual = parse(text, data) ;
 		string expected = "" ;
 		BOOST_CHECK_EQUAL( expected, actual ) ;
 	}
 	BOOST_AUTO_TEST_CASE(test_if_true)
 	{
-		string text = "{% if item %}{$item}{% endif %}" ;
+		string text = "{% if predicate %}{$item}{% endif %}" ;
+		data_map data ;
+		data["predicate"] = true;
+		data["item"] = make_data("foo") ;
+		string actual = parse(text, data) ;
+		string expected = "foo" ;
+		BOOST_CHECK_EQUAL( expected, actual ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_if_comments)
+	{
+		string text = "{% if item -- an if statement %}{$item}{% endif -- end of if %}" ;
 		data_map data ;
 		data["item"] = make_data("foo") ;
 		string actual = parse(text, data) ;
