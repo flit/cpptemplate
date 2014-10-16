@@ -296,7 +296,7 @@ namespace impl
 
 	// data_map
 	data_ptr& data_map::operator [](const std::string& key) {
-        if (!has(key) && parent)
+        if (data.find(key) == data.end() && parent)
         {
             return (*parent)[key];
         }
@@ -306,7 +306,8 @@ namespace impl
 		return data.empty();
 	}
 	bool data_map::has(const std::string& key) {
-		return data.find(key) != data.end();
+        bool local_has = data.find(key) != data.end();
+		return !local_has && parent ? parent->has(key) : local_has;
 	}
 
 	// data_ptr
@@ -544,7 +545,7 @@ namespace impl
                 }
                 data[key] = make_data("");
             }
-			return data[key] ;
+			return operator[](key) ;
 		}
 
         std::string sub_key = key.substr(0, index) ;
@@ -554,7 +555,7 @@ namespace impl
 			throw key_error("invalid map key");
 		}
 
-		return data[sub_key]->getmap().parse_path(key.substr(index+1), create) ;
+		return operator[](sub_key)->getmap().parse_path(key.substr(index+1), create) ;
 	}
 
     void dump_data(data_ptr data)

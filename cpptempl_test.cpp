@@ -47,6 +47,8 @@ std::string gettext(node_ptr node, data_map & data)
     return stream.str();
 }
 
+// ------------------------------------------------------------------------------------------
+
 BOOST_AUTO_TEST_SUITE( TestCppData )
 
 	// DataMap
@@ -84,7 +86,6 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 		bar["baz"] = baz;
 		foo["bar"] = bar;
 		items["foo"] = foo;
-		data_ptr data(new DataMap(items)) ;
 		BOOST_CHECK_EQUAL( items.parse_path("a")->getvalue(), "a" );
 		BOOST_CHECK_EQUAL( items.parse_path("foo.b")->getvalue(), "b" );
 		BOOST_CHECK_EQUAL( items.parse_path("foo.bar.c")->getvalue(), "c" );
@@ -111,6 +112,26 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 		data2->getmap().set_parent(&items);
 		BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
 		BOOST_CHECK_EQUAL( data2->getmap()["a"]->getvalue(), "zz" ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_DataMap_parse_path_with_parent)
+	{
+		data_map items ;
+		items["key"] = "foo" ;
+		items["a"] = "zz";
+		data_ptr data(new DataMap(items)) ;
+
+		BOOST_CHECK_EQUAL( data->getmap().parse_path("key")->getvalue(), "foo" ) ;
+		BOOST_CHECK_EQUAL( data->getmap().parse_path("a")->getvalue(), "zz" ) ;
+
+		data_map child;
+		child["key"] = "bar";
+		data_ptr data2(new DataMap(child)) ;
+		BOOST_CHECK_EQUAL( data2->getmap().parse_path("key")->getvalue(), "bar" ) ;
+		BOOST_CHECK_EQUAL( data2->getmap().has("a"), false ) ;
+
+		data2->getmap().set_parent(&items);
+		BOOST_CHECK_EQUAL( data2->getmap().parse_path("key")->getvalue(), "bar" ) ;
+		BOOST_CHECK_EQUAL( data2->getmap().parse_path("a")->getvalue(), "zz" ) ;
 	}
 	BOOST_AUTO_TEST_CASE(test_DataMap_move)
 	{
@@ -216,6 +237,8 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 	    BOOST_CHECK_EQUAL( t.params().size(), 0u );
 	}
 BOOST_AUTO_TEST_SUITE_END()
+
+// ------------------------------------------------------------------------------------------
 
 BOOST_AUTO_TEST_SUITE( TestCppStmtTokenizer )
     BOOST_AUTO_TEST_CASE(test_empty)
@@ -363,6 +386,8 @@ BOOST_AUTO_TEST_SUITE( TestCppStmtTokenizer )
         BOOST_CHECK_EQUAL(i.match(STRING_LITERAL_TOKEN)->get_type(), STRING_LITERAL_TOKEN);
     }
 BOOST_AUTO_TEST_SUITE_END()
+
+// ------------------------------------------------------------------------------------------
 
 BOOST_AUTO_TEST_SUITE( TestCppNode )
 
@@ -626,6 +651,8 @@ BOOST_AUTO_TEST_SUITE( TestCppNode )
 
 BOOST_AUTO_TEST_SUITE_END()
 
+// ------------------------------------------------------------------------------------------
+
 BOOST_AUTO_TEST_SUITE( TestCppExprParser )
 
     BOOST_AUTO_TEST_CASE(test_get_var_value_simple)
@@ -835,6 +862,8 @@ BOOST_AUTO_TEST_SUITE( TestCppExprParser )
 
 BOOST_AUTO_TEST_SUITE_END()
 
+// ------------------------------------------------------------------------------------------
+
 BOOST_AUTO_TEST_SUITE( TestCppParser )
 
  	BOOST_AUTO_TEST_CASE(test_empty)
@@ -966,6 +995,8 @@ BOOST_AUTO_TEST_SUITE( TestCppParser )
 
 BOOST_AUTO_TEST_SUITE_END()
 
+// ------------------------------------------------------------------------------------------
+
 BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 
 	BOOST_AUTO_TEST_CASE(test_empty)
@@ -1002,18 +1033,27 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 		string expected = "aaa---bbb" ;
 		BOOST_CHECK_EQUAL( expected, actual ) ;
 	}
-	BOOST_AUTO_TEST_CASE(test_for)
+	BOOST_AUTO_TEST_CASE(test_example_okinawa)
 	{
-		string text = "{% for item in items %}{$item}{% endfor %}" ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("0")) ;
-		items.push_back(make_data("1")) ;
-		data["items"] = make_data(items) ;
-		string actual = parse(text, data) ;
-		string expected = "01" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
+		// The text template
+		string text = "I heart {$place}!" ;
+		// Data to feed the template engine
+		cpptempl::data_map data ;
+		// {$place} => Okinawa
+		data["place"] = cpptempl::make_data("Okinawa");
+		// parse the template with the supplied data dictionary
+		string result = cpptempl::parse(text, data) ;
+
+		string expected = "I heart Okinawa!" ;
+		BOOST_CHECK_EQUAL( result, expected ) ;
 	}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+// ------------------------------------------------------------------------------------------
+
+BOOST_AUTO_TEST_SUITE(TestCppTemplateIf)
+
 	BOOST_AUTO_TEST_CASE(test_if_false)
 	{
 		string text = "{% if item %}{$item}{% endif %}" ;
@@ -1030,22 +1070,6 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 		data["item"] = make_data("foo") ;
 		string actual = parse(text, data) ;
 		string expected = "foo" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_nested_for)
-	{
-		string text = "{% for item in items %}{% for thing in things %}{$item}{$thing}{% endfor %}{% endfor %}" ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("0")) ;
-		items.push_back(make_data("1")) ;
-		data["items"] = make_data(items) ;
-		data_list things ;
-		things.push_back(make_data("a")) ;
-		things.push_back(make_data("b")) ;
-		data["things"] = make_data(things) ;
-		string actual = parse(text, data) ;
-		string expected = "0a0b1a1b" ;
 		BOOST_CHECK_EQUAL( expected, actual ) ;
 	}
 	BOOST_AUTO_TEST_CASE(test_nested_if_false)
@@ -1094,66 +1118,6 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 
 		string expected = "Full name: Robert" ;
 		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_syntax_dotted)
-	{
-		string text = "{% for friend in person.friends %}"
-			"{$loop.index}. {$friend.name} "
-			"{% endfor %}" ;
-
-		data_map bob ;
-		bob["name"] = make_data("Bob") ;
-		data_map betty ;
-		betty["name"] = make_data("Betty") ;
-		data_list friends ;
-		friends.push_back(make_data(bob)) ;
-		friends.push_back(make_data(betty)) ;
-		data_map person ;
-		person["friends"] = make_data(friends) ;
-		data_map data ;
-		data["person"] = make_data(person) ;
-
-		string result = cpptempl::parse(text, data) ;
-
-		string expected = "1. Bob 2. Betty " ;
-		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_okinawa)
-	{
-		// The text template
-		string text = "I heart {$place}!" ;
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		// {$place} => Okinawa
-		data["place"] = cpptempl::make_data("Okinawa");
-		// parse the template with the supplied data dictionary
-		string result = cpptempl::parse(text, data) ;
-
-		string expected = "I heart Okinawa!" ;
-		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_ul)
-	{
-		string text = "<h3>Locations</h3><ul>"
-			"{% for place in places %}"
-			"<li>{$place}</li>"
-			"{% endfor %}"
-			"</ul>" ;
-
-		// Create the list of items
-		cpptempl::data_list places;
-		places.push_back(cpptempl::make_data("Okinawa"));
-		places.push_back(cpptempl::make_data("San Francisco"));
-		// Now set this in the data map
-		cpptempl::data_map data ;
-		data["places"] = cpptempl::make_data(places);
-		// parse the template with the supplied data dictionary
-		string result = cpptempl::parse(text, data) ;
-		string expected = "<h3>Locations</h3><ul>"
-			"<li>Okinawa</li>"
-			"<li>San Francisco</li>"
-			"</ul>" ;
-		BOOST_CHECK_EQUAL(result, expected) ;
 	}
 	BOOST_AUTO_TEST_CASE(test_example_if_else)
 	{
@@ -1224,6 +1188,87 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 		data["bar"] = true;
 		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
 	}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+// ------------------------------------------------------------------------------------------
+
+BOOST_AUTO_TEST_SUITE(TestCppTemplateFor)
+
+	BOOST_AUTO_TEST_CASE(test_for)
+	{
+		string text = "{% for item in items %}{$item}{% endfor %}" ;
+		data_map data ;
+		data_list items ;
+		items.push_back(make_data("0")) ;
+		items.push_back(make_data("1")) ;
+		data["items"] = make_data(items) ;
+		string actual = parse(text, data) ;
+		string expected = "01" ;
+		BOOST_CHECK_EQUAL( expected, actual ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_nested_for)
+	{
+		string text = "{% for item in items %}{% for thing in things %}{$item}{$thing}{% endfor %}{% endfor %}" ;
+		data_map data ;
+		data_list items ;
+		items.push_back(make_data("0")) ;
+		items.push_back(make_data("1")) ;
+		data["items"] = make_data(items) ;
+		data_list things ;
+		things.push_back(make_data("a")) ;
+		things.push_back(make_data("b")) ;
+		data["things"] = make_data(things) ;
+		string actual = parse(text, data) ;
+		string expected = "0a0b1a1b" ;
+		BOOST_CHECK_EQUAL( expected, actual ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_syntax_dotted)
+	{
+		string text = "{% for friend in person.friends %}"
+			"{$loop.index}. {$friend.name} "
+			"{% endfor %}" ;
+
+		data_map bob ;
+		bob["name"] = make_data("Bob") ;
+		data_map betty ;
+		betty["name"] = make_data("Betty") ;
+		data_list friends ;
+		friends.push_back(make_data(bob)) ;
+		friends.push_back(make_data(betty)) ;
+		data_map person ;
+		person["friends"] = make_data(friends) ;
+		data_map data ;
+		data["person"] = make_data(person) ;
+
+		string result = cpptempl::parse(text, data) ;
+
+		string expected = "1. Bob 2. Betty " ;
+		BOOST_CHECK_EQUAL( result, expected ) ;
+	}
+	BOOST_AUTO_TEST_CASE(test_example_ul)
+	{
+		string text = "<h3>Locations</h3><ul>"
+			"{% for place in places %}"
+			"<li>{$place}</li>"
+			"{% endfor %}"
+			"</ul>" ;
+
+		// Create the list of items
+		cpptempl::data_list places;
+		places.push_back(cpptempl::make_data("Okinawa"));
+		places.push_back(cpptempl::make_data("San Francisco"));
+		// Now set this in the data map
+		cpptempl::data_map data ;
+		data["places"] = cpptempl::make_data(places);
+		// parse the template with the supplied data dictionary
+		string result = cpptempl::parse(text, data) ;
+		string expected = "<h3>Locations</h3><ul>"
+			"<li>Okinawa</li>"
+			"<li>San Francisco</li>"
+			"</ul>" ;
+		BOOST_CHECK_EQUAL(result, expected) ;
+	}
 	BOOST_AUTO_TEST_CASE(test_example_for_loop_var_restore)
 	{
 		// The text template
@@ -1245,6 +1290,13 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 		// parse the template with the supplied data dictionary
 		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), ".1:1:2:3-1.2:1:2:3-2" ) ;
 	}
+
+BOOST_AUTO_TEST_SUITE_END()
+
+// ------------------------------------------------------------------------------------------
+
+BOOST_AUTO_TEST_SUITE(TestCppTemplateDef)
+
 	BOOST_AUTO_TEST_CASE(test_example_def)
 	{
 		// The text template
@@ -1263,6 +1315,90 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 		// parse the template with the supplied data dictionary
 		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello happy world|hello sad world" ) ;
 	}
+	BOOST_AUTO_TEST_CASE(test_example_multi_def)
+	{
+		string text = "{% def foo(place) %}hello {$place}{% enddef %}";
+		data_map data ;
+		parse(text, data);
+		string text2 = "{$foo('world')}";
+		BOOST_CHECK_EQUAL( parse(text2, data), "hello world" );
+	}
+	BOOST_AUTO_TEST_CASE(test_example_multi_def_2)
+	{
+		string text = "{% def foo(place) %}hello {$place}{% enddef %}";
+		data_map data ;
+		parse(text, data);
+		{
+            data_map items;
+            items["bar"] = data["foo"];
+            data["items"] = items;
+        }
+		string text2 = "{$items.bar('world')}";
+		BOOST_CHECK_EQUAL( parse(text2, data), "hello world" );
+	}
+
+	data_map get_things_map()
+	{
+		data_map data ;
+        data_list mems;
+        data_map x;
+        x["name"] = "A";
+        x["value"] = "1";
+        mems.push_back(x);
+        data_map y;
+        y["name"] = "B";
+        y["value"] = "2";
+        mems.push_back(y);
+        data_map e;
+        e["members"] = mems;
+        e["name"] = "letters";
+        data_list mems2;
+        data_map z;
+        z["name"] = "Q";
+        z["value"] = "10";
+        mems2.push_back(z);
+        data_map f;
+        f["members"] = mems2;
+        f["name"] = "fun";
+        data_list es;
+        es.push_back(e);
+        es.push_back(f);
+        data["things"] = es;
+        return data;
+	}
+	BOOST_AUTO_TEST_CASE(test_example_multi_def_inner_for)
+	{
+		string text =
+            "{% def defwithloop(info) %}"
+            "({$info.name}:"
+            "{% for thing in info.members %}"
+            "[{$thing.name}{% if thing.value %}={$thing.value}{% endif%}]"
+            "{% endfor %})"
+            "{% enddef %}"
+            "{% for x in things %}"
+            "{$defwithloop(x)}"
+            "{% endfor %}";
+		data_map data = get_things_map() ;
+
+		BOOST_CHECK_EQUAL( parse(text, data), "(letters:[A=1][B=2])(fun:[Q=10])" );
+	}
+	BOOST_AUTO_TEST_CASE(test_example_multi_def_call_def)
+	{
+		string text =
+            "{% def outerdef(info) %}({$info.name}:{$defwithloop(info)}){% enddef %}"
+            "{% def defwithloop(info) %}"
+            "{% for thing in info.members %}"
+            "[{$thing.name}{% if thing.value %}={$thing.value}{% endif%}]"
+            "{% endfor %}"
+            "{% enddef %}"
+            "{% for x in things %}"
+            "{$outerdef(x)}"
+            "{% endfor %}";
+		data_map data = get_things_map() ;
+
+		BOOST_CHECK_EQUAL( parse(text, data), "(letters:[A=1][B=2])(fun:[Q=10])" );
+	}
+
 BOOST_AUTO_TEST_SUITE_END()
 
 // According to the docs this main() should be provided by the boost unit test lib,
