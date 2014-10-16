@@ -102,6 +102,9 @@ have zero or more elif branches and one optional else branch.
 Def statements are used to create subtemplates. They are described in detail below,
 in the Subtemplates section.
 
+Empty statements are also allowed, as are statements that consist only of single-line
+comments (see the section on comments below).
+
 Anywhere a variable name is used, you may use a dotted key path to walk through the
 keys of nested ``data_map`` objects. The leftmost key name is looked up in the
 ``data_map`` that was passed into the ``parse()`` or ``DataTemplate::eval()`` function
@@ -190,17 +193,23 @@ start of a line and the close brace is at the end of another line. In addition, 
 work for multiple consecutive control statements as long as they completely occupy the
 lines on which they reside with no intervening space.
 
-For additional control over newlines, you can place a ">" character as the last character
-before the closing brace sequence of a variable substitution or control statement  (i.e.,
-``%}`` or ``$}``). This will cause a newline that immediately follows the "}" to be omitted
-from the output. If a newline does not follow the close brace, this option will have no
-effect.
+For additional control over newlines, you can place a ">" character, called the newline
+eliding modifier (or just newline elider), as the last character before the closing brace
+sequence of a variable substitution or control statement  (i.e., ``{% ... >%}`` or
+``{$ ... >}``). This will cause a newline that immediately follows the "}" to be omitted
+from the output. If a newline does not immediately follow the close brace, this option will
+have no effect.
+
+You may combine an empty or comment-only statement with the newline elider to form a
+"newline-eater" statement. It looks like ``{%>%}``, or ``{% -- comment >%}`` with a
+comment. This can be very useful is situations where you want to break a complex sequence
+of statements into multiple lines for better maintainability.
 
 Comments
 --------
-Control statements inside ``{% %}`` brackets may be commented with line comments. A comment
-is started with ``--`` and runs to either the close bracket of the statement or the next
-line as demonstrated here::
+Control statements inside ``{% %}`` brackets may be commented with single-line comments. A
+single-comment is started with ``--`` and runs to either the close bracket of the statement
+or the next line as demonstrated here::
 
     {%
       for person -- loop variable
@@ -209,10 +218,10 @@ line as demonstrated here::
     Name: {$person.name}
     {% endfor -- end the person loop %}
 
-You may also put comments in ``{# #}`` brackets. These comments may span multiple lines.
-They will not be copied to the output under any circumstances. And, as with all control
-statements, if such a comment is on a line by itself, the newline following the comment
-is absorbed and not reproduced in the output.
+You may also put comments in ``{# #}`` brackets. These comments may span multiple lines
+and contain only comment text. They will not be copied to the output under any circumstances.
+As with all control statements, if such a comment is on a line by itself, the newline
+following the comment is absorbed and not reproduced in the output.
 
 Types
 ==================
