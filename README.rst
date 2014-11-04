@@ -87,7 +87,7 @@ Syntax
 :Def:
     ``{% def foobar(x) %}The value of x is {$x} today{% enddef %}``
 :Set:
-    ``{% set foo = 'fun' if on_vacation else 'work' %}
+    ``{% set foo = 'fun' if on_vacation else 'work' %}``
 :Comment:
     ``{# comment goes here #}``
 
@@ -128,7 +128,7 @@ If statements and variable substitution blocks accept arbitrary expressions. Thi
 currently most useful for if statements, as the expressions are only Boolean.
 
 Operators for expressions are shown in the following table, listed in order of highest
-to lowest precedence. _x_ and _y_ are subexpressions, and _p_ is a predicate subexpression.
+to lowest precedence. x and y are subexpressions, and p is a predicate subexpression.
 
 ==================  =======================================================
 ``sub(x,y,...)``    Subtemplate invocation with parameters
@@ -146,7 +146,7 @@ operators. Thus, ``not (x and y)`` is completely equivalent to ``!(x && y)``.
 
 The Boolean OR operator (``||`` or ``or``) does not produces a Boolean result. Instead, it
 returns the value of its non-empty, or true, operand. If both operands are non-empty, then
-it returns the left operand's value. Thus, ``false or 'lizard'`` returns ``'lizard```.
+it returns the left operand's value. Thus, ``false or 'lizard'`` returns ``'lizard'``.
 
 There are also a few pseudo-functions that may be used in expressions. More may be added
 later.
