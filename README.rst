@@ -86,6 +86,8 @@ Syntax
     ``{% if foo %}gorilla{% elif bar %}bonobo{% else %}orangutan{% endif %}``
 :Def:
     ``{% def foobar(x) %}The value of x is {$x} today{% enddef %}``
+:Set:
+    ``{% set foo = 'fun' if on_vacation else 'work' %}
 :Comment:
     ``{# comment goes here #}``
 
@@ -101,6 +103,10 @@ have zero or more elif branches and one optional else branch.
 
 Def statements are used to create subtemplates. They are described in detail below,
 in the Subtemplates section.
+
+Set statements allow one to assign a key path to the value of an expression evaluated
+at runtime. The value expression may be any expression supported in a variable
+substitution, including subtemplate invocations.
 
 Empty statements are also allowed, as are statements that consist only of single-line
 comments (see the section on comments below).
@@ -121,20 +127,26 @@ Expressions
 If statements and variable substitution blocks accept arbitrary expressions. This is
 currently most useful for if statements, as the expressions are only Boolean.
 
-Operators for expressions (x and y are subexpressions):
+Operators for expressions are shown in the following table, listed in order of highest
+to lowest precedence. _x_ and _y_ are subexpressions, and _p_ is a predicate subexpression.
 
 ==================  =======================================================
+``sub(x,y,...)``    Subtemplate invocation with parameters
+``(x)``             Parenthesized subexpression
 ``!x``              True if x is empty or false
+``x || y``          Boolean or
+``x && y``          Boolean and
 ``x == y``          Equality
 ``x != y``          Inequality
-``x && y``          Boolean and
-``x || y``          Boolean or
-``(x)``             Parenthesized subexpression
-``sub(x,y,...)``    Subtemplate invocation with parameters
+``x if p else y``   Inline if statement
 ==================  =======================================================
 
 Note that the keywords "not", "and", and "or" are also supported in place of the C-style
 operators. Thus, ``not (x and y)`` is completely equivalent to ``!(x && y)``.
+
+The Boolean OR operator (``||`` or ``or``) does not produces a Boolean result. Instead, it
+returns the value of its non-empty, or true, operand. If both operands are non-empty, then
+it returns the left operand's value. Thus, ``false or 'lizard'`` returns ``'lizard```.
 
 There are also a few pseudo-functions that may be used in expressions. More may be added
 later.
@@ -177,13 +189,29 @@ Inside a for statement block, a "loop" map variable is defined with these keys:
 ==========  =======================================================
 ``index``   Base-1 current index of loop
 ``index0``  Base-0 current index of loop
+``first``   True if this is the first iteration through the loop
 ``last``    True if this is the last iteration through the loop
+``even``    True on all even iterations, starting with the second
+``odd``     True on all odd iterations, starting with the first
 ``count``   Total number of elements in the list
 ==========  =======================================================
 
 The "loop" variable remains available after the for statement completes. It will also be
 accessible in the data map after the template finishes execution. Of course, a subsequent
 for loop will change the "loop" variable's contents.
+
+The "loop" variable works more or less as expected with nested for loops. During the inner
+loop, the outer loop's "loop" variable is not accessible. But once the inner loop completes,
+the "loop" variable switches back to the outer loop's values. If you need access to the
+outer loop's "loop" variable inside the inner loop, use a set statement to assign it to
+another key path::
+
+    {% for person in people %}
+        {% set person_loop = loop %}
+        {% for name in person.friends %}
+            {% if person_loop.last %}...{% endif %}
+        {% endfor %}
+    {% endfor %}
 
 Newline control
 ---------------
@@ -335,4 +363,3 @@ Known Issues
   for CRLF line endings.
 - The only way to output the variable substitution or control statement open block
   sequences is to substitute a string literal with that value, i.e. ``{$"{%"}``.
-- Nested for loops update the same "loop" variable.

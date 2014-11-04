@@ -51,6 +51,7 @@ namespace impl
         ELIF_TOKEN,
         ELSE_TOKEN,
         DEF_TOKEN,
+        SET_TOKEN,
         ENDFOR_TOKEN,
         ENDIF_TOKEN,
         ENDDEF_TOKEN,
@@ -59,6 +60,7 @@ namespace impl
         NOT_TOKEN,
         EQ_TOKEN,
         NEQ_TOKEN,
+        ASSIGN_TOKEN = '=',
         OPEN_PAREN_TOKEN = '(',
         CLOSE_PAREN_TOKEN = ')',
         COMMA_TOKEN = ',',
@@ -123,6 +125,7 @@ namespace impl
         ExprParser(TokenIterator & seq, data_map & data) : m_tok(seq), m_data(data) {}
 
         data_ptr parse_expr();
+        data_ptr parse_oterm();
         data_ptr parse_bterm();
         data_ptr parse_bfactor();
         data_ptr parse_factor();
@@ -140,6 +143,7 @@ namespace impl
         NODE_TYPE_ELSE,
 		NODE_TYPE_FOR,
         NODE_TYPE_DEF,
+        NODE_TYPE_SET,
 	} NodeType;
 
 	// Template nodes
@@ -225,6 +229,16 @@ namespace impl
         NodeType gettype();
 		void gettext(std::ostream &stream, data_map &data);
     };
+
+	// set variable
+	class NodeSet : public Node
+	{
+        token_vector m_expr;
+	public:
+		NodeSet(const token_vector & expr, uint32_t line=0) : Node(line), m_expr(expr) {}
+		NodeType gettype();
+		void gettext(std::ostream &stream, data_map &data);
+	};
 
     // Lexer states for statement tokenizer.
     enum lexer_state_t
@@ -629,6 +643,7 @@ namespace impl
             { ELIF_TOKEN,   "elif" },
             { ELSE_TOKEN,   "else" },
             { DEF_TOKEN,    "def" },
+            { SET_TOKEN,    "set" },
             { ENDFOR_TOKEN, "endfor" },
             { ENDIF_TOKEN,  "endif" },
             { ENDDEF_TOKEN, "enddef" },
@@ -733,10 +748,17 @@ namespace impl
                         str_literal.clear();
                         state = STRING_LITERAL_STATE;
                     }
-                    else if (c == '=' && peek() == '=')
+                    else if (c == '=')
                     {
-                        tokens.emplace_back(EQ_TOKEN);
-                        ++i;
+                        if (peek() == '=')
+                        {
+                            tokens.emplace_back(EQ_TOKEN);
+                            ++i;
+                        }
+                        else
+                        {
+                            tokens.emplace_back(ASSIGN_TOKEN);
+                        }
                     }
                     else if (c == '!')
                     {
@@ -829,7 +851,8 @@ namespace impl
 
     // Expression grammar
     //
-    // expr         ::= bterm ( "or" bterm )*
+    // expr         ::= oterm [ "if" oterm "else" oterm ]
+    // oterm        ::= bterm ( "or" bterm )*
     // bterm        ::= bfactor ( "and" bfactor )*
     // bfactor      ::= factor [ ( "==" | "!=" ) factor ]
     // factor       ::= "not" expr
@@ -998,7 +1021,7 @@ namespace impl
         return ldata;
     }
 
-    data_ptr ExprParser::parse_expr()
+    data_ptr ExprParser::parse_oterm()
     {
         data_ptr ldata = parse_bterm();
 
@@ -1009,6 +1032,26 @@ namespace impl
             data_ptr rdata = parse_bterm();
 
             if (ldata->empty())
+            {
+                ldata = rdata;
+            }
+        }
+
+        return ldata;
+    }
+
+    data_ptr ExprParser::parse_expr()
+    {
+        data_ptr ldata = parse_oterm();
+
+        if (m_tok->get_type() == IF_TOKEN)
+        {
+            m_tok.match(IF_TOKEN);
+            data_ptr predicate = parse_oterm();
+            m_tok.match(ELSE_TOKEN);
+            data_ptr rdata = parse_oterm();
+
+            if (predicate->empty())
             {
                 ldata = rdata;
             }
@@ -1109,7 +1152,10 @@ namespace impl
                 data_map loop ;
                 loop["index"] = make_data(i+1) ;
                 loop["index0"] = make_data(i) ;
+                loop["first"] = make_data(i == 0);
                 loop["last"] = make_data(i == items.size() - 1);
+                loop["even"] = make_data(i % 2 == 1);
+                loop["odd"] = make_data(i % 2 == 0);
                 loop["count"] = make_data(items.size());
                 data["loop"] = make_data(loop);
                 data[m_val] = items[i] ;
@@ -1248,22 +1294,36 @@ namespace impl
 
 	void NodeDef::gettext( std::ostream &stream, data_map &data )
 	{
-        try
-        {
-            // Follow the key path.
-            data_ptr& target = data.parse_path(m_name, true);
+        // Follow the key path.
+        data_ptr& target = data.parse_path(m_name, true);
 
-            // Set the map entry's value to a newly created template. The nodes were already
-            // parsed and set as our m_children vector. The names of the template's parameters
-            // are set from the param names we parsed in the ctor.
-            DataTemplate * tmpl = new DataTemplate(m_children);
-            tmpl->params() = m_params;
-            target = data_ptr(tmpl);
-        }
-        catch (data_map::key_error &)
-        {
-            // ignore exception
-        }
+        // Set the map entry's value to a newly created template. The nodes were already
+        // parsed and set as our m_children vector. The names of the template's parameters
+        // are set from the param names we parsed in the ctor.
+        DataTemplate * tmpl = new DataTemplate(m_children);
+        tmpl->params() = m_params;
+        target = data_ptr(tmpl);
+	}
+
+	// NodeSet
+	NodeType NodeSet::gettype()
+	{
+		return NODE_TYPE_SET ;
+	}
+
+	void NodeSet::gettext( std::ostream &stream, data_map &data )
+	{
+        TokenIterator tok(m_expr);
+        tok.match(SET_TOKEN, "expected 'set'");
+        std::string path = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
+        tok.match(ASSIGN_TOKEN);
+        ExprParser parser(tok, data);
+        data_ptr value = parser.parse_expr();
+        tok.match(END_TOKEN, "expected end of statement");
+
+        // Follow the key path, creating the key if missing.
+        data_ptr& target = data.parse_path(path, true);
+        target = value;
 	}
 
     inline size_t count_newlines(const std::string & text)
@@ -1454,6 +1514,10 @@ namespace impl
 
                 case DEF_TOKEN:
                     push_node(new NodeDef(stmt_tokens, m_current_line), ENDDEF_TOKEN);
+                    break;
+
+                case SET_TOKEN:
+                    m_current_nodes->push_back(node_ptr (new NodeSet(stmt_tokens, m_current_line)));
                     break;
 
                 case ENDFOR_TOKEN:
