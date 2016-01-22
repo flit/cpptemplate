@@ -51,191 +51,191 @@ std::string gettext(node_ptr node, data_map & data)
 
 BOOST_AUTO_TEST_SUITE( TestCppData )
 
-	// DataMap
-	BOOST_AUTO_TEST_CASE(test_DataMap_getvalue)
-	{
-		data_map items ;
-		data_ptr data(new DataMap(items)) ;
-		BOOST_CHECK_THROW( data->getvalue(), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataMap_getlist_throws)
-	{
-		data_map items ;
-		data_ptr data(new DataMap(items)) ;
+    // DataMap
+    BOOST_AUTO_TEST_CASE(test_DataMap_getvalue)
+    {
+        data_map items ;
+        data_ptr data(new DataMap(items)) ;
+        BOOST_CHECK_THROW( data->getvalue(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataMap_getlist_throws)
+    {
+        data_map items ;
+        data_ptr data(new DataMap(items)) ;
 
-		BOOST_CHECK_THROW( data->getlist(), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataMap_getitem)
-	{
-		data_map items ;
-		items["key"] = data_ptr(new DataValue("foo")) ;
-		data_ptr data(new DataMap(items)) ;
+        BOOST_CHECK_THROW( data->getlist(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataMap_getitem)
+    {
+        data_map items ;
+        items["key"] = data_ptr(new DataValue("foo")) ;
+        data_ptr data(new DataMap(items)) ;
 
-		BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataMap_parse_path)
-	{
-		data_map items ;
-		data_map foo;
-		data_map bar;
-		data_map baz;
-		items["a"] = "a";
-		foo["b"] = "b";
-		bar["c"] = "c";
-		baz["d"] = "d";
-		bar["baz"] = baz;
-		foo["bar"] = bar;
-		items["foo"] = foo;
-		BOOST_CHECK_EQUAL( items.parse_path("a")->getvalue(), "a" );
-		BOOST_CHECK_EQUAL( items.parse_path("foo.b")->getvalue(), "b" );
-		BOOST_CHECK_EQUAL( items.parse_path("foo.bar.c")->getvalue(), "c" );
-		BOOST_CHECK_EQUAL( items.parse_path("foo.bar.baz.d")->getvalue(), "d" );
-		BOOST_CHECK_THROW( items.parse_path("xx.yy"), data_map::key_error ) ;
-		BOOST_CHECK_THROW( items.parse_path("foo.bar.yy"), data_map::key_error ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataMap_parent)
-	{
-		data_map items ;
-		items["key"] = "foo" ;
-		items["a"] = "zz";
-		data_ptr data(new DataMap(items)) ;
+        BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataMap_parse_path)
+    {
+        data_map items ;
+        data_map foo;
+        data_map bar;
+        data_map baz;
+        items["a"] = "a";
+        foo["b"] = "b";
+        bar["c"] = "c";
+        baz["d"] = "d";
+        bar["baz"] = baz;
+        foo["bar"] = bar;
+        items["foo"] = foo;
+        BOOST_CHECK_EQUAL( items.parse_path("a")->getvalue(), "a" );
+        BOOST_CHECK_EQUAL( items.parse_path("foo.b")->getvalue(), "b" );
+        BOOST_CHECK_EQUAL( items.parse_path("foo.bar.c")->getvalue(), "c" );
+        BOOST_CHECK_EQUAL( items.parse_path("foo.bar.baz.d")->getvalue(), "d" );
+        BOOST_CHECK_THROW( items.parse_path("xx.yy"), data_map::key_error ) ;
+        BOOST_CHECK_THROW( items.parse_path("foo.bar.yy"), data_map::key_error ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataMap_parent)
+    {
+        data_map items ;
+        items["key"] = "foo" ;
+        items["a"] = "zz";
+        data_ptr data(new DataMap(items)) ;
 
-		BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
-		BOOST_CHECK_EQUAL( data->getmap()["a"]->getvalue(), "zz" ) ;
+        BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
+        BOOST_CHECK_EQUAL( data->getmap()["a"]->getvalue(), "zz" ) ;
 
-		data_map child;
-		child["key"] = "bar";
-		data_ptr data2(new DataMap(child)) ;
-		BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
-		BOOST_CHECK_EQUAL( data2->getmap().has("a"), false ) ;
+        data_map child;
+        child["key"] = "bar";
+        data_ptr data2(new DataMap(child)) ;
+        BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
+        BOOST_CHECK_EQUAL( data2->getmap().has("a"), false ) ;
 
-		data2->getmap().set_parent(&items);
-		BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
-		BOOST_CHECK_EQUAL( data2->getmap()["a"]->getvalue(), "zz" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataMap_parse_path_with_parent)
-	{
-		data_map items ;
-		items["key"] = "foo" ;
-		items["a"] = "zz";
-		data_ptr data(new DataMap(items)) ;
+        data2->getmap().set_parent(&items);
+        BOOST_CHECK_EQUAL( data2->getmap()["key"]->getvalue(), "bar" ) ;
+        BOOST_CHECK_EQUAL( data2->getmap()["a"]->getvalue(), "zz" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataMap_parse_path_with_parent)
+    {
+        data_map items ;
+        items["key"] = "foo" ;
+        items["a"] = "zz";
+        data_ptr data(new DataMap(items)) ;
 
-		BOOST_CHECK_EQUAL( data->getmap().parse_path("key")->getvalue(), "foo" ) ;
-		BOOST_CHECK_EQUAL( data->getmap().parse_path("a")->getvalue(), "zz" ) ;
+        BOOST_CHECK_EQUAL( data->getmap().parse_path("key")->getvalue(), "foo" ) ;
+        BOOST_CHECK_EQUAL( data->getmap().parse_path("a")->getvalue(), "zz" ) ;
 
-		data_map child;
-		child["key"] = "bar";
-		data_ptr data2(new DataMap(child)) ;
-		BOOST_CHECK_EQUAL( data2->getmap().parse_path("key")->getvalue(), "bar" ) ;
-		BOOST_CHECK_EQUAL( data2->getmap().has("a"), false ) ;
+        data_map child;
+        child["key"] = "bar";
+        data_ptr data2(new DataMap(child)) ;
+        BOOST_CHECK_EQUAL( data2->getmap().parse_path("key")->getvalue(), "bar" ) ;
+        BOOST_CHECK_EQUAL( data2->getmap().has("a"), false ) ;
 
-		data2->getmap().set_parent(&items);
-		BOOST_CHECK_EQUAL( data2->getmap().parse_path("key")->getvalue(), "bar" ) ;
-		BOOST_CHECK_EQUAL( data2->getmap().parse_path("a")->getvalue(), "zz" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataMap_move)
-	{
-		data_map items ;
-		items["key"] = "foo" ;
-		data_ptr data(new DataMap(std::move(items))) ;
+        data2->getmap().set_parent(&items);
+        BOOST_CHECK_EQUAL( data2->getmap().parse_path("key")->getvalue(), "bar" ) ;
+        BOOST_CHECK_EQUAL( data2->getmap().parse_path("a")->getvalue(), "zz" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataMap_move)
+    {
+        data_map items ;
+        items["key"] = "foo" ;
+        data_ptr data(new DataMap(std::move(items))) ;
 
-		BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
-		BOOST_CHECK( !items.has("key") ) ;
-	}
-	// DataList
-	BOOST_AUTO_TEST_CASE(test_DataList_getvalue)
-	{
-		data_list items ;
-		data_ptr data(new DataList(items)) ;
+        BOOST_CHECK_EQUAL( data->getmap()["key"]->getvalue(), "foo" ) ;
+        BOOST_CHECK( !items.has("key") ) ;
+    }
+    // DataList
+    BOOST_AUTO_TEST_CASE(test_DataList_getvalue)
+    {
+        data_list items ;
+        data_ptr data(new DataList(items)) ;
 
-		BOOST_CHECK_THROW( data->getvalue(), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataList_getlist_throws)
-	{
-		data_list items ;
-		items.push_back(make_data("bar")) ;
-		data_ptr data(new DataList(items)) ;
+        BOOST_CHECK_THROW( data->getvalue(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataList_getlist_throws)
+    {
+        data_list items ;
+        items.push_back(make_data("bar")) ;
+        data_ptr data(new DataList(items)) ;
 
-		BOOST_CHECK_EQUAL( data->getlist().size(), 1u ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataList_getitem_throws)
-	{
-		data_list items ;
-		data_ptr data(new DataList(items)) ;
+        BOOST_CHECK_EQUAL( data->getlist().size(), 1u ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataList_getitem_throws)
+    {
+        data_list items ;
+        data_ptr data(new DataList(items)) ;
 
-		BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataList_move)
-	{
-		data_list items ;
-		items.push_back("a");
-		items.push_back("b");
-		BOOST_CHECK_EQUAL( items.size(), 2);
+        BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataList_move)
+    {
+        data_list items ;
+        items.push_back("a");
+        items.push_back("b");
+        BOOST_CHECK_EQUAL( items.size(), 2);
 
-		data_ptr data(new DataList(std::move(items))) ;
+        data_ptr data(new DataList(std::move(items))) ;
 
-		BOOST_CHECK_EQUAL( data->getlist().size(), 2 ) ;
-		BOOST_CHECK_EQUAL( items.size(), 0 ) ;
-		BOOST_CHECK_EQUAL( data->getlist()[0]->getvalue(), "a");
-	}
-	// DataValue
-	BOOST_AUTO_TEST_CASE(test_DataValue_getvalue)
-	{
-		data_ptr data(new DataValue("foo")) ;
+        BOOST_CHECK_EQUAL( data->getlist().size(), 2 ) ;
+        BOOST_CHECK_EQUAL( items.size(), 0 ) ;
+        BOOST_CHECK_EQUAL( data->getlist()[0]->getvalue(), "a");
+    }
+    // DataValue
+    BOOST_AUTO_TEST_CASE(test_DataValue_getvalue)
+    {
+        data_ptr data(new DataValue("foo")) ;
 
-		BOOST_CHECK_EQUAL( data->getvalue(), "foo" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataValue_getlist_throws)
-	{
-		data_ptr data(new DataValue("foo")) ;
+        BOOST_CHECK_EQUAL( data->getvalue(), "foo" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataValue_getlist_throws)
+    {
+        data_ptr data(new DataValue("foo")) ;
 
-		BOOST_CHECK_THROW( data->getlist(), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataValue_getitem_throws)
-	{
-		data_ptr data(new DataValue("foo")) ;
+        BOOST_CHECK_THROW( data->getlist(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataValue_getitem_throws)
+    {
+        data_ptr data(new DataValue("foo")) ;
 
-		BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataValue_move)
-	{
-	    string foo = "foo";
-	    BOOST_CHECK_EQUAL( foo, "foo");
+        BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataValue_move)
+    {
+        string foo = "foo";
+        BOOST_CHECK_EQUAL( foo, "foo");
 
-		data_ptr data(new DataValue(std::move(foo))) ;
+        data_ptr data(new DataValue(std::move(foo))) ;
 
-		BOOST_CHECK_EQUAL( data->getvalue(), "foo" ) ;
-		BOOST_CHECK_EQUAL( foo.size(), 0);
-	}
-	// DataBool
-	BOOST_AUTO_TEST_CASE(test_DataBool_true)
-	{
-		data_ptr data(new DataBool(true)) ;
+        BOOST_CHECK_EQUAL( data->getvalue(), "foo" ) ;
+        BOOST_CHECK_EQUAL( foo.size(), 0);
+    }
+    // DataBool
+    BOOST_AUTO_TEST_CASE(test_DataBool_true)
+    {
+        data_ptr data(new DataBool(true)) ;
 
-		BOOST_CHECK_EQUAL( data->getvalue(), "true" ) ;
-		BOOST_CHECK( !data->empty() ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataBool_false)
-	{
-		data_ptr data(new DataBool(false)) ;
+        BOOST_CHECK_EQUAL( data->getvalue(), "true" ) ;
+        BOOST_CHECK( !data->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataBool_false)
+    {
+        data_ptr data(new DataBool(false)) ;
 
-		BOOST_CHECK_EQUAL( data->getvalue(), "false" ) ;
-		BOOST_CHECK( data->empty() ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_DataBool_getitem_throws)
-	{
-		data_ptr data(new DataBool(false)) ;
+        BOOST_CHECK_EQUAL( data->getvalue(), "false" ) ;
+        BOOST_CHECK( data->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataBool_getitem_throws)
+    {
+        data_ptr data(new DataBool(false)) ;
 
-		BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
-	}
-	// DataTemplate
-	BOOST_AUTO_TEST_CASE(test_DataTemplate_empty)
-	{
-	    DataTemplate t("");
-	    BOOST_CHECK( !t.empty() );  // templates are always non-empty
-	    BOOST_CHECK_EQUAL( t.getvalue(), "" );
-	    BOOST_CHECK_EQUAL( t.params().size(), 0u );
-	}
+        BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
+    }
+    // DataTemplate
+    BOOST_AUTO_TEST_CASE(test_DataTemplate_empty)
+    {
+        DataTemplate t("");
+        BOOST_CHECK( !t.empty() );  // templates are always non-empty
+        BOOST_CHECK_EQUAL( t.getvalue(), "" );
+        BOOST_CHECK_EQUAL( t.params().size(), 0u );
+    }
 BOOST_AUTO_TEST_SUITE_END()
 
 // ------------------------------------------------------------------------------------------
@@ -391,263 +391,263 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( TestCppNode )
 
- 	// NodeVar
- 	BOOST_AUTO_TEST_CASE(TestNodeVarType)
- 	{
- 	    token_vector tokens = impl::tokenize_statement("foo");
- 		NodeVar node(tokens) ;
- 		BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_VAR ) ;
- 	}
- 	BOOST_AUTO_TEST_CASE(TestNodeVar)
- 	{
- 		node_ptr node(new NodeVar(tokenize_statement("foo"))) ;
- 		data_map data ;
- 		data["foo"] = make_data("bar") ;
- 		BOOST_CHECK_EQUAL( gettext(node, data), "bar" ) ;
- 	}
-	BOOST_AUTO_TEST_CASE(TestNodeVarCantHaveChildren)
-	{
-		NodeVar node(tokenize_statement("foo")) ;
-		node_vector children ;
-		BOOST_CHECK_THROW(node.set_children(children), TemplateException) ;
-	}
-	// NodeText
-	BOOST_AUTO_TEST_CASE(TestNodeTextType)
-	{
-		NodeText node("foo") ;
-		BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_TEXT ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeText)
-	{
-		node_ptr node(new NodeText("foo")) ;
-		data_map data ;
-		data["foo"] = make_data("bar") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeTextCantHaveChildrenSet)
-	{
-		NodeText node("foo") ;
-		node_vector children ;
-		BOOST_CHECK_THROW(node.set_children(children), TemplateException) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeTextCantHaveChildrenGet)
-	{
-		NodeText node("foo") ;
-		node_vector children ;
-		BOOST_CHECK_THROW(node.get_children(), TemplateException) ;
-	}
-	// NodeFor
-	BOOST_AUTO_TEST_CASE(TestNodeForBadSyntax)
-	{
-		BOOST_CHECK_THROW(NodeFor node(tokenize_statement("foo"), true), TemplateException ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForType)
-	{
-		NodeFor node(tokenize_statement("for item in items"), true) ;
-		BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_FOR ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForTextEmpty)
-	{
-		node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("first"));
-		data["items"] = make_data(items) ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForTextOneVar)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
-		node->set_children(children) ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("first "));
-		items.push_back(make_data("second "));
-		data["items"] = make_data(items) ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "first second " ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForTextOneVarLoop)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("loop.index")))) ;
-		node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
-		node->set_children(children) ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("first "));
-		items.push_back(make_data("second "));
-		data["items"] = make_data(items) ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "12" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForLoopTextVar)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("loop.index")))) ;
-		children.push_back(node_ptr(new NodeText(". "))) ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		children.push_back(node_ptr(new NodeText(" "))) ;
-		node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
-		node->set_children(children) ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("first"));
-		items.push_back(make_data("second"));
-		data["items"] = make_data(items) ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "1. first 2. second " ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForLoopTextVarDotted)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("loop.index")))) ;
-		children.push_back(node_ptr(new NodeText(". "))) ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("friend.name")))) ;
-		children.push_back(node_ptr(new NodeText(" "))) ;
-		node_ptr node(new NodeFor(tokenize_statement("for friend in person.friends"), true)) ;
-		node->set_children(children) ;
+    // NodeVar
+    BOOST_AUTO_TEST_CASE(TestNodeVarType)
+    {
+        token_vector tokens = impl::tokenize_statement("foo");
+        NodeVar node(tokens) ;
+        BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_VAR ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeVar)
+    {
+        node_ptr node(new NodeVar(tokenize_statement("foo"))) ;
+        data_map data ;
+        data["foo"] = make_data("bar") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "bar" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeVarCantHaveChildren)
+    {
+        NodeVar node(tokenize_statement("foo")) ;
+        node_vector children ;
+        BOOST_CHECK_THROW(node.set_children(children), TemplateException) ;
+    }
+    // NodeText
+    BOOST_AUTO_TEST_CASE(TestNodeTextType)
+    {
+        NodeText node("foo") ;
+        BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_TEXT ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeText)
+    {
+        node_ptr node(new NodeText("foo")) ;
+        data_map data ;
+        data["foo"] = make_data("bar") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeTextCantHaveChildrenSet)
+    {
+        NodeText node("foo") ;
+        node_vector children ;
+        BOOST_CHECK_THROW(node.set_children(children), TemplateException) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeTextCantHaveChildrenGet)
+    {
+        NodeText node("foo") ;
+        node_vector children ;
+        BOOST_CHECK_THROW(node.get_children(), TemplateException) ;
+    }
+    // NodeFor
+    BOOST_AUTO_TEST_CASE(TestNodeForBadSyntax)
+    {
+        BOOST_CHECK_THROW(NodeFor node(tokenize_statement("foo"), true), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForType)
+    {
+        NodeFor node(tokenize_statement("for item in items"), true) ;
+        BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_FOR ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForTextEmpty)
+    {
+        node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("first"));
+        data["items"] = make_data(items) ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForTextOneVar)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
+        node->set_children(children) ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("first "));
+        items.push_back(make_data("second "));
+        data["items"] = make_data(items) ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "first second " ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForTextOneVarLoop)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("loop.index")))) ;
+        node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
+        node->set_children(children) ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("first "));
+        items.push_back(make_data("second "));
+        data["items"] = make_data(items) ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "12" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForLoopTextVar)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("loop.index")))) ;
+        children.push_back(node_ptr(new NodeText(". "))) ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        children.push_back(node_ptr(new NodeText(" "))) ;
+        node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
+        node->set_children(children) ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("first"));
+        items.push_back(make_data("second"));
+        data["items"] = make_data(items) ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "1. first 2. second " ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForLoopTextVarDotted)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("loop.index")))) ;
+        children.push_back(node_ptr(new NodeText(". "))) ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("friend.name")))) ;
+        children.push_back(node_ptr(new NodeText(" "))) ;
+        node_ptr node(new NodeFor(tokenize_statement("for friend in person.friends"), true)) ;
+        node->set_children(children) ;
 
-		data_map bob ;
-		bob["name"] = make_data("Bob") ;
-		data_map betty ;
-		betty["name"] = make_data("Betty") ;
-		data_list friends ;
-		friends.push_back(make_data(bob)) ;
-		friends.push_back(make_data(betty)) ;
-		data_map person ;
-		person["friends"] = make_data(friends) ;
-		data_map data ;
-		data["person"] = make_data(person) ;
+        data_map bob ;
+        bob["name"] = make_data("Bob") ;
+        data_map betty ;
+        betty["name"] = make_data("Betty") ;
+        data_list friends ;
+        friends.push_back(make_data(bob)) ;
+        friends.push_back(make_data(betty)) ;
+        data_map person ;
+        person["friends"] = make_data(friends) ;
+        data_map data ;
+        data["person"] = make_data(person) ;
 
-		BOOST_CHECK_EQUAL( gettext(node, data), "1. Bob 2. Betty " ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeForTextOneText)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeText("{--}"))) ;
-		node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
-		node->set_children(children) ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("first "));
-		items.push_back(make_data("second "));
-		data["items"] = make_data(items) ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "{--}{--}" ) ;
-	}
+        BOOST_CHECK_EQUAL( gettext(node, data), "1. Bob 2. Betty " ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeForTextOneText)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeText("{--}"))) ;
+        node_ptr node(new NodeFor(tokenize_statement("for item in items"), true)) ;
+        node->set_children(children) ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("first "));
+        items.push_back(make_data("second "));
+        data["items"] = make_data(items) ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "{--}{--}" ) ;
+    }
 
-	//////////////////////////////////////////////////////////////////////////
-	// NodeIf
-	//////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    // NodeIf
+    //////////////////////////////////////////////////////////////////////////
 
-	BOOST_AUTO_TEST_CASE(TestNodeIfType)
-	{
-		NodeIf node(tokenize_statement("if items")) ;
-		BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_IF ) ;
-	}
-	// if not empty
-	BOOST_AUTO_TEST_CASE(TestNodeIfText)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeText("{--}"))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item"))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "{--}" ) ;
-		data["item"] = false;
-		BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeIfVar)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item"))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
-		data["item"] = false;
-		BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
-	}
+    BOOST_AUTO_TEST_CASE(TestNodeIfType)
+    {
+        NodeIf node(tokenize_statement("if items")) ;
+        BOOST_CHECK_EQUAL( node.gettype(), NODE_TYPE_IF ) ;
+    }
+    // if not empty
+    BOOST_AUTO_TEST_CASE(TestNodeIfText)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeText("{--}"))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item"))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "{--}" ) ;
+        data["item"] = false;
+        BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeIfVar)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item"))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
+        data["item"] = false;
+        BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
+    }
 
-	// ==
-	BOOST_AUTO_TEST_CASE(TestNodeIfEqualsTrue)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item == \"foo\""))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeIfEqualsFalse)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item == \"bar\""))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeIfEqualsTwoVarsTrue)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item == foo"))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("x") ;
-		data["foo"] = make_data("x") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "x" ) ;
-		data["foo"] = make_data("z") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
-	}
+    // ==
+    BOOST_AUTO_TEST_CASE(TestNodeIfEqualsTrue)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item == \"foo\""))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeIfEqualsFalse)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item == \"bar\""))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeIfEqualsTwoVarsTrue)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item == foo"))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("x") ;
+        data["foo"] = make_data("x") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "x" ) ;
+        data["foo"] = make_data("z") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
+    }
 
-	// !=
-	BOOST_AUTO_TEST_CASE(TestNodeIfNotEqualsTrue)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item != \"foo\""))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeIfNotEqualsFalse)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if item != \"bar\""))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
-	}
+    // !=
+    BOOST_AUTO_TEST_CASE(TestNodeIfNotEqualsTrue)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item != \"foo\""))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeIfNotEqualsFalse)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeVar(tokenize_statement("item")))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if item != \"bar\""))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "foo" ) ;
+    }
 
-	// not
-	BOOST_AUTO_TEST_CASE(TestNodeIfNotTrueText)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeText("{--}"))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if not item"))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "") ;
-	}
-	BOOST_AUTO_TEST_CASE(TestNodeIfNotFalseText)
-	{
-		node_vector children ;
-		children.push_back(node_ptr(new NodeText("{--}"))) ;
-		node_ptr node(new NodeIf(tokenize_statement("if not item"))) ;
-		node->set_children(children) ;
-		data_map data ;
-		data["item"] = make_data("") ;
-		BOOST_CHECK_EQUAL( gettext(node, data), "{--}") ;
-	}
+    // not
+    BOOST_AUTO_TEST_CASE(TestNodeIfNotTrueText)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeText("{--}"))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if not item"))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "") ;
+    }
+    BOOST_AUTO_TEST_CASE(TestNodeIfNotFalseText)
+    {
+        node_vector children ;
+        children.push_back(node_ptr(new NodeText("{--}"))) ;
+        node_ptr node(new NodeIf(tokenize_statement("if not item"))) ;
+        node->set_children(children) ;
+        data_map data ;
+        data["item"] = make_data("") ;
+        BOOST_CHECK_EQUAL( gettext(node, data), "{--}") ;
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -886,132 +886,132 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE( TestCppParser )
 
- 	BOOST_AUTO_TEST_CASE(test_empty)
- 	{
- 		string text = "" ;
- 		node_vector nodes ;
- 		impl::TemplateParser(text, nodes).parse() ;
+    BOOST_AUTO_TEST_CASE(test_empty)
+    {
+        string text = "" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
 
- 		BOOST_CHECK_EQUAL( 0u, nodes.size() ) ;
- 	}
- 	BOOST_AUTO_TEST_CASE(test_text_only)
- 	{
- 		string text = "blah blah blah" ;
- 		node_vector nodes ;
- 		impl::TemplateParser(text, nodes).parse() ;
- 		data_map data ;
+        BOOST_CHECK_EQUAL( 0u, nodes.size() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_text_only)
+    {
+        string text = "blah blah blah" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
+        data_map data ;
 
- 		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
- 		BOOST_CHECK_EQUAL( gettext(nodes[0], data), "blah blah blah" ) ;
- 	}
-	BOOST_AUTO_TEST_CASE(test_brackets_no_var)
-	{
-		string text = "{foo}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
-		data_map data ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0], data), "blah blah blah" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_brackets_no_var)
+    {
+        string text = "{foo}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
+        data_map data ;
 
-		BOOST_CHECK_EQUAL( 2u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0], data), "{" ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[1], data), "foo}" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_ends_with_bracket)
-	{
-		string text = "blah blah blah{" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
-		data_map data ;
+        BOOST_CHECK_EQUAL( 2u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0], data), "{" ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[1], data), "foo}" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_ends_with_bracket)
+    {
+        string text = "blah blah blah{" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
+        data_map data ;
 
-		BOOST_CHECK_EQUAL( 2u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0], data), "blah blah blah" ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[1], data), "{" ) ;
-	}
-	// var
-	BOOST_AUTO_TEST_CASE(test_var)
-	{
-		string text = "{$foo}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
-		data_map data ;
-		data["foo"] = make_data("bar") ;
+        BOOST_CHECK_EQUAL( 2u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0], data), "blah blah blah" ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[1], data), "{" ) ;
+    }
+    // var
+    BOOST_AUTO_TEST_CASE(test_var)
+    {
+        string text = "{$foo}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
+        data_map data ;
+        data["foo"] = make_data("bar") ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0], data), "bar" ) ;
-	}
-	// for
-	BOOST_AUTO_TEST_CASE(test_for)
-	{
-		string text = "{% for item in items %}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0], data), "bar" ) ;
+    }
+    // for
+    BOOST_AUTO_TEST_CASE(test_for)
+    {
+        string text = "{% for item in items %}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_FOR ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_for_full)
-	{
-		string text = "{% for item in items %}{$item}{% endfor %}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_FOR ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_for_full)
+    {
+        string text = "{% for item in items %}{$item}{% endfor %}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( 1u, nodes[0]->get_children().size() ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_FOR ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->get_children()[0]->gettype(), NODE_TYPE_VAR ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_for_full_with_text)
-	{
-		string text = "{% for item in items %}*{$item}*{% endfor %}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
-		data_map data ;
-		data["item"] = make_data("my ax") ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( 1u, nodes[0]->get_children().size() ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_FOR ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->get_children()[0]->gettype(), NODE_TYPE_VAR ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_for_full_with_text)
+    {
+        string text = "{% for item in items %}*{$item}*{% endfor %}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
+        data_map data ;
+        data["item"] = make_data("my ax") ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( 3u, nodes[0]->get_children().size() ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_FOR ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[0], data), "*" ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->get_children()[1]->gettype(), NODE_TYPE_VAR ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[1], data), "my ax" ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[2], data), "*" ) ;
-	}
-	// if
-	BOOST_AUTO_TEST_CASE(test_if)
-	{
-		string text = "{% if foo %}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( 3u, nodes[0]->get_children().size() ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_FOR ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[0], data), "*" ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->get_children()[1]->gettype(), NODE_TYPE_VAR ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[1], data), "my ax" ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[2], data), "*" ) ;
+    }
+    // if
+    BOOST_AUTO_TEST_CASE(test_if)
+    {
+        string text = "{% if foo %}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_IF ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_if_full)
-	{
-		string text = "{% if item %}{$item}{% endif %}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_IF ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_if_full)
+    {
+        string text = "{% if item %}{$item}{% endif %}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( 1u, nodes[0]->get_children().size() ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_IF ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->get_children()[0]->gettype(), NODE_TYPE_VAR ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_if_full_with_text)
-	{
-		string text = "{% if item %}{{$item}}{% endif %}" ;
-		node_vector nodes ;
-		impl::TemplateParser(text, nodes).parse() ;
-		data_map data ;
-		data["item"] = make_data("my ax") ;
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( 1u, nodes[0]->get_children().size() ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_IF ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->get_children()[0]->gettype(), NODE_TYPE_VAR ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_if_full_with_text)
+    {
+        string text = "{% if item %}{{$item}}{% endif %}" ;
+        node_vector nodes ;
+        impl::TemplateParser(text, nodes).parse() ;
+        data_map data ;
+        data["item"] = make_data("my ax") ;
 
-		BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
-		BOOST_CHECK_EQUAL( 3u, nodes[0]->get_children().size() ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_IF ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[0], data), "{" ) ;
-		BOOST_CHECK_EQUAL( nodes[0]->get_children()[1]->gettype(), NODE_TYPE_VAR ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[1], data), "my ax" ) ;
-		BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[2], data), "}" ) ;
-	}
+        BOOST_CHECK_EQUAL( 1u, nodes.size() ) ;
+        BOOST_CHECK_EQUAL( 3u, nodes[0]->get_children().size() ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->gettype(), NODE_TYPE_IF ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[0], data), "{" ) ;
+        BOOST_CHECK_EQUAL( nodes[0]->get_children()[1]->gettype(), NODE_TYPE_VAR ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[1], data), "my ax" ) ;
+        BOOST_CHECK_EQUAL( gettext(nodes[0]->get_children()[2], data), "}" ) ;
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -1019,54 +1019,54 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(TestCppTemplateEval)
 
-	BOOST_AUTO_TEST_CASE(test_empty)
-	{
-		string text = "" ;
-		data_map data ;
-		string actual = parse(text, data) ;
-		string expected = "" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_no_vars)
-	{
-		string text = "foo" ;
-		data_map data ;
-		string actual = parse(text, data) ;
-		string expected = "foo" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_var)
-	{
-		string text = "{$foo}" ;
-		data_map data ;
-		data["foo"] = make_data("bar") ;
-		string actual = parse(text, data) ;
-		string expected = "bar" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_var_surrounded)
-	{
-		string text = "aaa{$foo}bbb" ;
-		data_map data ;
-		data["foo"] = make_data("---") ;
-		string actual = parse(text, data) ;
-		string expected = "aaa---bbb" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_okinawa)
-	{
-		// The text template
-		string text = "I heart {$place}!" ;
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		// {$place} => Okinawa
-		data["place"] = cpptempl::make_data("Okinawa");
-		// parse the template with the supplied data dictionary
-		string result = cpptempl::parse(text, data) ;
+    BOOST_AUTO_TEST_CASE(test_empty)
+    {
+        string text = "" ;
+        data_map data ;
+        string actual = parse(text, data) ;
+        string expected = "" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_no_vars)
+    {
+        string text = "foo" ;
+        data_map data ;
+        string actual = parse(text, data) ;
+        string expected = "foo" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_var)
+    {
+        string text = "{$foo}" ;
+        data_map data ;
+        data["foo"] = make_data("bar") ;
+        string actual = parse(text, data) ;
+        string expected = "bar" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_var_surrounded)
+    {
+        string text = "aaa{$foo}bbb" ;
+        data_map data ;
+        data["foo"] = make_data("---") ;
+        string actual = parse(text, data) ;
+        string expected = "aaa---bbb" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_okinawa)
+    {
+        // The text template
+        string text = "I heart {$place}!" ;
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        // {$place} => Okinawa
+        data["place"] = cpptempl::make_data("Okinawa");
+        // parse the template with the supplied data dictionary
+        string result = cpptempl::parse(text, data) ;
 
-		string expected = "I heart Okinawa!" ;
-		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
+        string expected = "I heart Okinawa!" ;
+        BOOST_CHECK_EQUAL( result, expected ) ;
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -1074,44 +1074,44 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(TestCppTemplateMisc)
 
-	BOOST_AUTO_TEST_CASE(test_empty_stmt)
-	{
-		string text = "aaa{%  %}bbb{$item}ccc" ;
-		data_map data ;
-		data["item"] = "xyz" ;
-		BOOST_CHECK_EQUAL( parse(text, data), "aaabbbxyzccc" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_comment_only_stmt)
-	{
-		string text = "aaa{% -- a comment! %}bbb{$item -- a comment on a var}ccc" ;
-		data_map data ;
-		data["item"] = "xyz" ;
-		BOOST_CHECK_EQUAL( parse(text, data), "aaabbbxyzccc" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_newline_elision)
-	{
-		string text = "{% if predicate >%}\n"
-		              "{$item >}\n"
-		              "{% endif %}" ;
-		data_map data ;
-		data["predicate"] = true;
-		data["item"] = "foo" ;
-		BOOST_CHECK_EQUAL( parse(text, data), "foo" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_newline_eater)
-	{
-		string text = "hello{%>%}\n"
-		              " world" ;
-		data_map data ;
-		BOOST_CHECK_EQUAL( parse(text, data), "hello world" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_newline_eater_with_comment)
-	{
-		string text = "hello{% -- get rid of following newline >%}\n"
-		              " world" ;
-		data_map data ;
-		BOOST_CHECK_EQUAL( parse(text, data), "hello world" ) ;
-	}
+    BOOST_AUTO_TEST_CASE(test_empty_stmt)
+    {
+        string text = "aaa{%  %}bbb{$item}ccc" ;
+        data_map data ;
+        data["item"] = "xyz" ;
+        BOOST_CHECK_EQUAL( parse(text, data), "aaabbbxyzccc" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_comment_only_stmt)
+    {
+        string text = "aaa{% -- a comment! %}bbb{$item -- a comment on a var}ccc" ;
+        data_map data ;
+        data["item"] = "xyz" ;
+        BOOST_CHECK_EQUAL( parse(text, data), "aaabbbxyzccc" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_newline_elision)
+    {
+        string text = "{% if predicate >%}\n"
+                      "{$item >}\n"
+                      "{% endif %}" ;
+        data_map data ;
+        data["predicate"] = true;
+        data["item"] = "foo" ;
+        BOOST_CHECK_EQUAL( parse(text, data), "foo" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_newline_eater)
+    {
+        string text = "hello{%>%}\n"
+                      " world" ;
+        data_map data ;
+        BOOST_CHECK_EQUAL( parse(text, data), "hello world" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_newline_eater_with_comment)
+    {
+        string text = "hello{% -- get rid of following newline >%}\n"
+                      " world" ;
+        data_map data ;
+        BOOST_CHECK_EQUAL( parse(text, data), "hello world" ) ;
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -1119,151 +1119,151 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(TestCppTemplateIf)
 
-	BOOST_AUTO_TEST_CASE(test_if_false)
-	{
-		string text = "{% if predicate %}{$item}{% endif %}" ;
-		data_map data ;
-		data["predicate"] = false;
-		data["item"] = make_data("foo") ;
-		string actual = parse(text, data) ;
-		string expected = "" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_if_true)
-	{
-		string text = "{% if predicate %}{$item}{% endif %}" ;
-		data_map data ;
-		data["predicate"] = true;
-		data["item"] = make_data("foo") ;
-		string actual = parse(text, data) ;
-		string expected = "foo" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_if_comments)
-	{
-		string text = "{% if item -- an if statement %}{$item}{% endif -- end of if %}" ;
-		data_map data ;
-		data["item"] = make_data("foo") ;
-		string actual = parse(text, data) ;
-		string expected = "foo" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_nested_if_false)
-	{
-		string text = "{% if item %}{% if thing %}{$item}{$thing}{% endif %}{% endif %}" ;
-		data_map data ;
-		data["item"] = make_data("aaa") ;
-		data["thing"] = make_data("") ;
-		string actual = parse(text, data) ;
-		string expected = "" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_nested_if_true)
-	{
-		string text = "{% if item %}{% if thing %}{$item}{$thing}{% endif %}{% endif %}" ;
-		data_map data ;
-		data["item"] = make_data("aaa") ;
-		data["thing"] = make_data("bbb") ;
-		string actual = parse(text, data) ;
-		string expected = "aaabbb" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_usage_example)
-	{
-		string text = "{% if item %}{$item}{% endif %}\n"
-			"{% if thing %}{$thing}{% endif %}" ;
-		cpptempl::data_map data ;
-		data["item"] = cpptempl::make_data("aaa") ;
-		data["thing"] = cpptempl::make_data("bbb") ;
+    BOOST_AUTO_TEST_CASE(test_if_false)
+    {
+        string text = "{% if predicate %}{$item}{% endif %}" ;
+        data_map data ;
+        data["predicate"] = false;
+        data["item"] = make_data("foo") ;
+        string actual = parse(text, data) ;
+        string expected = "" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_if_true)
+    {
+        string text = "{% if predicate %}{$item}{% endif %}" ;
+        data_map data ;
+        data["predicate"] = true;
+        data["item"] = make_data("foo") ;
+        string actual = parse(text, data) ;
+        string expected = "foo" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_if_comments)
+    {
+        string text = "{% if item -- an if statement %}{$item}{% endif -- end of if %}" ;
+        data_map data ;
+        data["item"] = make_data("foo") ;
+        string actual = parse(text, data) ;
+        string expected = "foo" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_nested_if_false)
+    {
+        string text = "{% if item %}{% if thing %}{$item}{$thing}{% endif %}{% endif %}" ;
+        data_map data ;
+        data["item"] = make_data("aaa") ;
+        data["thing"] = make_data("") ;
+        string actual = parse(text, data) ;
+        string expected = "" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_nested_if_true)
+    {
+        string text = "{% if item %}{% if thing %}{$item}{$thing}{% endif %}{% endif %}" ;
+        data_map data ;
+        data["item"] = make_data("aaa") ;
+        data["thing"] = make_data("bbb") ;
+        string actual = parse(text, data) ;
+        string expected = "aaabbb" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_usage_example)
+    {
+        string text = "{% if item %}{$item}{% endif %}\n"
+            "{% if thing %}{$thing}{% endif %}" ;
+        cpptempl::data_map data ;
+        data["item"] = cpptempl::make_data("aaa") ;
+        data["thing"] = cpptempl::make_data("bbb") ;
 
-		string result = cpptempl::parse(text, data) ;
+        string result = cpptempl::parse(text, data) ;
 
-		string expected = "aaa\nbbb" ;
-		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_syntax_if)
-	{
-		string text = "{% if person.name == \"Bob\" %}Full name: Robert{% endif %}" ;
-		data_map person ;
-		person["name"] = make_data("Bob") ;
-		person["occupation"] = make_data("Plumber") ;
-		data_map data ;
-		data["person"] = make_data(person) ;
+        string expected = "aaa\nbbb" ;
+        BOOST_CHECK_EQUAL( result, expected ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_syntax_if)
+    {
+        string text = "{% if person.name == \"Bob\" %}Full name: Robert{% endif %}" ;
+        data_map person ;
+        person["name"] = make_data("Bob") ;
+        person["occupation"] = make_data("Plumber") ;
+        data_map data ;
+        data["person"] = make_data(person) ;
 
-		string result = cpptempl::parse(text, data) ;
+        string result = cpptempl::parse(text, data) ;
 
-		string expected = "Full name: Robert" ;
-		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_if_else)
-	{
-		// The text template
-		string text = "{% if foo %}yes{% else %}no{% endif %}";
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		data["foo"] = true;
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "yes" ) ;
+        string expected = "Full name: Robert" ;
+        BOOST_CHECK_EQUAL( result, expected ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_if_else)
+    {
+        // The text template
+        string text = "{% if foo %}yes{% else %}no{% endif %}";
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        data["foo"] = true;
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "yes" ) ;
 
-		data["foo"] = false;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "no" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_if_elif)
-	{
-		// The text template
-		string text = "{% if foo %}aa{% elif bar %}bb{% endif %}";
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		data["foo"] = true;
-		data["bar"] = false;
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "aa" ) ;
+        data["foo"] = false;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "no" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_if_elif)
+    {
+        // The text template
+        string text = "{% if foo %}aa{% elif bar %}bb{% endif %}";
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        data["foo"] = true;
+        data["bar"] = false;
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "aa" ) ;
 
-		data["foo"] = false;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "" ) ;
+        data["foo"] = false;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "" ) ;
 
-		data["bar"] = true;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_if_elif_else)
-	{
-		// The text template
-		string text = "{% if foo %}aa{% elif bar %}bb{% else %}cc{% endif %}";
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		data["foo"] = true;
-		data["bar"] = false;
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "aa" ) ;
+        data["bar"] = true;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_if_elif_else)
+    {
+        // The text template
+        string text = "{% if foo %}aa{% elif bar %}bb{% else %}cc{% endif %}";
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        data["foo"] = true;
+        data["bar"] = false;
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "aa" ) ;
 
-		data["foo"] = false;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "cc" ) ;
+        data["foo"] = false;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "cc" ) ;
 
-		data["bar"] = true;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_if_elif_x2)
-	{
-		// The text template
-		string text = "{% if foo %}aa{% elif bar %}bb{% elif baz %}cc{% endif %}";
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		data["foo"] = false;
-		data["bar"] = false;
-		data["baz"] = false;
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "" ) ;
+        data["bar"] = true;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_if_elif_x2)
+    {
+        // The text template
+        string text = "{% if foo %}aa{% elif bar %}bb{% elif baz %}cc{% endif %}";
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        data["foo"] = false;
+        data["bar"] = false;
+        data["baz"] = false;
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "" ) ;
 
-		data["foo"] = true;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "aa" ) ;
+        data["foo"] = true;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "aa" ) ;
 
-		data["foo"] = false;
-		data["baz"] = true;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "cc" ) ;
+        data["foo"] = false;
+        data["baz"] = true;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "cc" ) ;
 
-		data["bar"] = true;
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
-	}
+        data["bar"] = true;
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "bb" ) ;
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -1271,101 +1271,101 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(TestCppTemplateFor)
 
-	BOOST_AUTO_TEST_CASE(test_for)
-	{
-		string text = "{% for item in items %}{$item}{% endfor %}" ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("0")) ;
-		items.push_back(make_data("1")) ;
-		data["items"] = make_data(items) ;
-		string actual = parse(text, data) ;
-		string expected = "01" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_nested_for)
-	{
-		string text = "{% for item in items %}{% for thing in things %}{$item}{$thing}{% endfor %}{% endfor %}" ;
-		data_map data ;
-		data_list items ;
-		items.push_back(make_data("0")) ;
-		items.push_back(make_data("1")) ;
-		data["items"] = make_data(items) ;
-		data_list things ;
-		things.push_back(make_data("a")) ;
-		things.push_back(make_data("b")) ;
-		data["things"] = make_data(things) ;
-		string actual = parse(text, data) ;
-		string expected = "0a0b1a1b" ;
-		BOOST_CHECK_EQUAL( expected, actual ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_syntax_dotted)
-	{
-		string text = "{% for friend in person.friends %}"
-			"{$loop.index}. {$friend.name} "
-			"{% endfor %}" ;
+    BOOST_AUTO_TEST_CASE(test_for)
+    {
+        string text = "{% for item in items %}{$item}{% endfor %}" ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("0")) ;
+        items.push_back(make_data("1")) ;
+        data["items"] = make_data(items) ;
+        string actual = parse(text, data) ;
+        string expected = "01" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_nested_for)
+    {
+        string text = "{% for item in items %}{% for thing in things %}{$item}{$thing}{% endfor %}{% endfor %}" ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data("0")) ;
+        items.push_back(make_data("1")) ;
+        data["items"] = make_data(items) ;
+        data_list things ;
+        things.push_back(make_data("a")) ;
+        things.push_back(make_data("b")) ;
+        data["things"] = make_data(things) ;
+        string actual = parse(text, data) ;
+        string expected = "0a0b1a1b" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_syntax_dotted)
+    {
+        string text = "{% for friend in person.friends %}"
+            "{$loop.index}. {$friend.name} "
+            "{% endfor %}" ;
 
-		data_map bob ;
-		bob["name"] = make_data("Bob") ;
-		data_map betty ;
-		betty["name"] = make_data("Betty") ;
-		data_list friends ;
-		friends.push_back(make_data(bob)) ;
-		friends.push_back(make_data(betty)) ;
-		data_map person ;
-		person["friends"] = make_data(friends) ;
-		data_map data ;
-		data["person"] = make_data(person) ;
+        data_map bob ;
+        bob["name"] = make_data("Bob") ;
+        data_map betty ;
+        betty["name"] = make_data("Betty") ;
+        data_list friends ;
+        friends.push_back(make_data(bob)) ;
+        friends.push_back(make_data(betty)) ;
+        data_map person ;
+        person["friends"] = make_data(friends) ;
+        data_map data ;
+        data["person"] = make_data(person) ;
 
-		string result = cpptempl::parse(text, data) ;
+        string result = cpptempl::parse(text, data) ;
 
-		string expected = "1. Bob 2. Betty " ;
-		BOOST_CHECK_EQUAL( result, expected ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_ul)
-	{
-		string text = "<h3>Locations</h3><ul>"
-			"{% for place in places %}"
-			"<li>{$place}</li>"
-			"{% endfor %}"
-			"</ul>" ;
+        string expected = "1. Bob 2. Betty " ;
+        BOOST_CHECK_EQUAL( result, expected ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_ul)
+    {
+        string text = "<h3>Locations</h3><ul>"
+            "{% for place in places %}"
+            "<li>{$place}</li>"
+            "{% endfor %}"
+            "</ul>" ;
 
-		// Create the list of items
-		cpptempl::data_list places;
-		places.push_back(cpptempl::make_data("Okinawa"));
-		places.push_back(cpptempl::make_data("San Francisco"));
-		// Now set this in the data map
-		cpptempl::data_map data ;
-		data["places"] = cpptempl::make_data(places);
-		// parse the template with the supplied data dictionary
-		string result = cpptempl::parse(text, data) ;
-		string expected = "<h3>Locations</h3><ul>"
-			"<li>Okinawa</li>"
-			"<li>San Francisco</li>"
-			"</ul>" ;
-		BOOST_CHECK_EQUAL(result, expected) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_for_loop_var_restore)
-	{
-		// The text template
-		string text = "{% for x in items %}.{$loop.index}"
-		                "{% for y in more %}:{$loop.index}{% endfor %}"
-		                "-{$loop.index}{% endfor %}";
-		// Data to feed the template engine
-		data_list items;
-		items.push_back("a");
-		items.push_back("b");
-		data_list more;
-		more.push_back("1");
-		more.push_back("2");
-		more.push_back("3");
-		cpptempl::data_map data ;
-		data["items"] = items;
-		data["more"] = more;
+        // Create the list of items
+        cpptempl::data_list places;
+        places.push_back(cpptempl::make_data("Okinawa"));
+        places.push_back(cpptempl::make_data("San Francisco"));
+        // Now set this in the data map
+        cpptempl::data_map data ;
+        data["places"] = cpptempl::make_data(places);
+        // parse the template with the supplied data dictionary
+        string result = cpptempl::parse(text, data) ;
+        string expected = "<h3>Locations</h3><ul>"
+            "<li>Okinawa</li>"
+            "<li>San Francisco</li>"
+            "</ul>" ;
+        BOOST_CHECK_EQUAL(result, expected) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_for_loop_var_restore)
+    {
+        // The text template
+        string text = "{% for x in items %}.{$loop.index}"
+                        "{% for y in more %}:{$loop.index}{% endfor %}"
+                        "-{$loop.index}{% endfor %}";
+        // Data to feed the template engine
+        data_list items;
+        items.push_back("a");
+        items.push_back("b");
+        data_list more;
+        more.push_back("1");
+        more.push_back("2");
+        more.push_back("3");
+        cpptempl::data_map data ;
+        data["items"] = items;
+        data["more"] = more;
 
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), ".1:1:2:3-1.2:1:2:3-2" ) ;
-	}
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), ".1:1:2:3-1.2:1:2:3-2" ) ;
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -1373,49 +1373,49 @@ BOOST_AUTO_TEST_SUITE_END()
 
 BOOST_AUTO_TEST_SUITE(TestCppTemplateDef)
 
-	BOOST_AUTO_TEST_CASE(test_example_def)
-	{
-		// The text template
-		string text = "{% def foo %}hello world{% enddef %}{$foo}";
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello world" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_def_param)
-	{
-		// The text template
-		string text = "{% def foo(p) %}hello {$p} world{% enddef %}{$foo('happy')}|{$foo('sad')}";
-		// Data to feed the template engine
-		cpptempl::data_map data ;
-		// parse the template with the supplied data dictionary
-		BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello happy world|hello sad world" ) ;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_multi_def)
-	{
-		string text = "{% def foo(place) %}hello {$place}{% enddef %}";
-		data_map data ;
-		parse(text, data);
-		string text2 = "{$foo('world')}";
-		BOOST_CHECK_EQUAL( parse(text2, data), "hello world" );
-	}
-	BOOST_AUTO_TEST_CASE(test_example_multi_def_2)
-	{
-		string text = "{% def foo(place) %}hello {$place}{% enddef %}";
-		data_map data ;
-		parse(text, data);
-		{
+    BOOST_AUTO_TEST_CASE(test_example_def)
+    {
+        // The text template
+        string text = "{% def foo %}hello world{% enddef %}{$foo}";
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello world" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_def_param)
+    {
+        // The text template
+        string text = "{% def foo(p) %}hello {$p} world{% enddef %}{$foo('happy')}|{$foo('sad')}";
+        // Data to feed the template engine
+        cpptempl::data_map data ;
+        // parse the template with the supplied data dictionary
+        BOOST_CHECK_EQUAL( cpptempl::parse(text, data), "hello happy world|hello sad world" ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_example_multi_def)
+    {
+        string text = "{% def foo(place) %}hello {$place}{% enddef %}";
+        data_map data ;
+        parse(text, data);
+        string text2 = "{$foo('world')}";
+        BOOST_CHECK_EQUAL( parse(text2, data), "hello world" );
+    }
+    BOOST_AUTO_TEST_CASE(test_example_multi_def_2)
+    {
+        string text = "{% def foo(place) %}hello {$place}{% enddef %}";
+        data_map data ;
+        parse(text, data);
+        {
             data_map items;
             items["bar"] = data["foo"];
             data["items"] = items;
         }
-		string text2 = "{$items.bar('world')}";
-		BOOST_CHECK_EQUAL( parse(text2, data), "hello world" );
-	}
+        string text2 = "{$items.bar('world')}";
+        BOOST_CHECK_EQUAL( parse(text2, data), "hello world" );
+    }
 
-	data_map get_things_map()
-	{
-		data_map data ;
+    data_map get_things_map()
+    {
+        data_map data ;
         data_list mems;
         data_map x;
         x["name"] = "A";
@@ -1441,10 +1441,10 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateDef)
         es.push_back(f);
         data["things"] = es;
         return data;
-	}
-	BOOST_AUTO_TEST_CASE(test_example_multi_def_inner_for)
-	{
-		string text =
+    }
+    BOOST_AUTO_TEST_CASE(test_example_multi_def_inner_for)
+    {
+        string text =
             "{% def defwithloop(info) %}"
             "({$info.name}:"
             "{% for thing in info.members %}"
@@ -1454,13 +1454,13 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateDef)
             "{% for x in things %}"
             "{$defwithloop(x)}"
             "{% endfor %}";
-		data_map data = get_things_map() ;
+        data_map data = get_things_map() ;
 
-		BOOST_CHECK_EQUAL( parse(text, data), "(letters:[A=1][B=2])(fun:[Q=10])" );
-	}
-	BOOST_AUTO_TEST_CASE(test_example_multi_def_call_def)
-	{
-		string text =
+        BOOST_CHECK_EQUAL( parse(text, data), "(letters:[A=1][B=2])(fun:[Q=10])" );
+    }
+    BOOST_AUTO_TEST_CASE(test_example_multi_def_call_def)
+    {
+        string text =
             "{% def outerdef(info) %}({$info.name}:{$defwithloop(info)}){% enddef %}"
             "{% def defwithloop(info) %}"
             "{% for thing in info.members %}"
@@ -1470,10 +1470,10 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateDef)
             "{% for x in things %}"
             "{$outerdef(x)}"
             "{% endfor %}";
-		data_map data = get_things_map() ;
+        data_map data = get_things_map() ;
 
-		BOOST_CHECK_EQUAL( parse(text, data), "(letters:[A=1][B=2])(fun:[Q=10])" );
-	}
+        BOOST_CHECK_EQUAL( parse(text, data), "(letters:[A=1][B=2])(fun:[Q=10])" );
+    }
 
 BOOST_AUTO_TEST_SUITE_END()
 

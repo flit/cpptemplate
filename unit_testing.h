@@ -58,18 +58,18 @@ inline std::string wide_to_utf8(const std::wstring& text) {
 
 namespace std {
 
-	inline ostream& operator<<(ostream& out, const wchar_t* value)
-	{
-		wstring text(value) ;
-		out << wide_to_utf8(text);
-		return out;
-	}
+    inline ostream& operator<<(ostream& out, const wchar_t* value)
+    {
+        wstring text(value) ;
+        out << wide_to_utf8(text);
+        return out;
+    }
 
-	inline ostream& operator<<(ostream& out, const wstring& value)
-	{
-		out << wide_to_utf8(value);
-		return out;
-	}
+    inline ostream& operator<<(ostream& out, const wstring& value)
+    {
+        out << wide_to_utf8(value);
+        return out;
+    }
 }
 
 

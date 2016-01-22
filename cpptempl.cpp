@@ -133,112 +133,112 @@ namespace impl
         data_ptr get_var_value(const std::string & path, data_list & params);
     };
 
-	typedef enum
-	{
-		NODE_TYPE_NONE,
-		NODE_TYPE_TEXT,
-		NODE_TYPE_VAR,
-		NODE_TYPE_IF,
+    typedef enum
+    {
+        NODE_TYPE_NONE,
+        NODE_TYPE_TEXT,
+        NODE_TYPE_VAR,
+        NODE_TYPE_IF,
         NODE_TYPE_ELIF,
         NODE_TYPE_ELSE,
-		NODE_TYPE_FOR,
+        NODE_TYPE_FOR,
         NODE_TYPE_DEF,
         NODE_TYPE_SET,
-	} NodeType;
+    } NodeType;
 
-	// Template nodes
-	// base class for all node types
-	class Node
-	{
+    // Template nodes
+    // base class for all node types
+    class Node
+    {
         uint32_t m_line;
-	public:
+    public:
         Node(uint32_t line) : m_line(line) {}
-		virtual NodeType gettype() = 0 ;
-		virtual void gettext(std::ostream &stream, data_map &data) = 0 ;
-		virtual void set_children(node_vector &children);
-		virtual node_vector & get_children();
+        virtual NodeType gettype() = 0 ;
+        virtual void gettext(std::ostream &stream, data_map &data) = 0 ;
+        virtual void set_children(node_vector &children);
+        virtual node_vector & get_children();
         uint32_t get_line() { return m_line; }
         void set_line(uint32_t line) { m_line = line; }
-	};
+    };
 
-	// node with children
-	class NodeParent : public Node
-	{
+    // node with children
+    class NodeParent : public Node
+    {
     protected:
-		node_vector m_children ;
-	public:
+        node_vector m_children ;
+    public:
         NodeParent(uint32_t line) : Node(line) {}
-		void set_children(node_vector &children);
-		node_vector &get_children();
-	};
+        void set_children(node_vector &children);
+        node_vector &get_children();
+    };
 
-	// normal text
-	class NodeText : public Node
-	{
+    // normal text
+    class NodeText : public Node
+    {
         std::string m_text ;
-	public:
-		NodeText(std::string text, uint32_t line=0) : Node(line), m_text(text){}
-		NodeType gettype();
-		void gettext(std::ostream &stream, data_map &data);
-	};
+    public:
+        NodeText(std::string text, uint32_t line=0) : Node(line), m_text(text){}
+        NodeType gettype();
+        void gettext(std::ostream &stream, data_map &data);
+    };
 
-	// variable
-	class NodeVar : public Node
-	{
+    // variable
+    class NodeVar : public Node
+    {
         token_vector m_expr;
-	public:
-		NodeVar(const token_vector & expr, uint32_t line=0) : Node(line), m_expr(expr) {}
-		NodeType gettype();
-		void gettext(std::ostream &stream, data_map &data);
-	};
+    public:
+        NodeVar(const token_vector & expr, uint32_t line=0) : Node(line), m_expr(expr) {}
+        NodeType gettype();
+        void gettext(std::ostream &stream, data_map &data);
+    };
 
-	// for block
-	class NodeFor : public NodeParent
-	{
+    // for block
+    class NodeFor : public NodeParent
+    {
         std::string m_key ;
         std::string m_val ;
         bool m_is_top;
-	public:
-		NodeFor(const token_vector & tokens, bool is_top, uint32_t line=0);
-		NodeType gettype();
-		void gettext(std::ostream &stream, data_map &data);
-	};
+    public:
+        NodeFor(const token_vector & tokens, bool is_top, uint32_t line=0);
+        NodeType gettype();
+        void gettext(std::ostream &stream, data_map &data);
+    };
 
-	// if block
-	class NodeIf : public NodeParent
-	{
+    // if block
+    class NodeIf : public NodeParent
+    {
         token_vector m_expr ;
         node_ptr m_else_if;
         NodeType m_if_type;
-	public:
-		NodeIf(const token_vector & expr, uint32_t line=0);
-		NodeType gettype();
+    public:
+        NodeIf(const token_vector & expr, uint32_t line=0);
+        NodeType gettype();
         void set_else_if(node_ptr else_if);
-		void gettext(std::ostream &stream, data_map &data);
-		bool is_true(data_map &data);
+        void gettext(std::ostream &stream, data_map &data);
+        bool is_true(data_map &data);
         bool is_else();
-	};
+    };
 
     // def block
     class NodeDef : public NodeParent
     {
         std::string m_name;
         string_vector m_params;
-	public:
+    public:
         NodeDef(const token_vector & expr, uint32_t line=0);
         NodeType gettype();
-		void gettext(std::ostream &stream, data_map &data);
+        void gettext(std::ostream &stream, data_map &data);
     };
 
-	// set variable
-	class NodeSet : public Node
-	{
+    // set variable
+    class NodeSet : public Node
+    {
         token_vector m_expr;
-	public:
-		NodeSet(const token_vector & expr, uint32_t line=0) : Node(line), m_expr(expr) {}
-		NodeType gettype();
-		void gettext(std::ostream &stream, data_map &data);
-	};
+    public:
+        NodeSet(const token_vector & expr, uint32_t line=0) : Node(line), m_expr(expr) {}
+        NodeType gettype();
+        void gettext(std::ostream &stream, data_map &data);
+    };
 
     // Lexer states for statement tokenizer.
     enum lexer_state_t
@@ -297,9 +297,9 @@ namespace impl
 }
 #else
 
-	//////////////////////////////////////////////////////////////////////////
-	// Data classes
-	//////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    // Data classes
+    //////////////////////////////////////////////////////////////////////////
 
     // These ctors are defined here to resolve definition ordering issues with clang.
     data_ptr::data_ptr(DataBool* data) : ptr(data) {}
@@ -308,117 +308,117 @@ namespace impl
     data_ptr::data_ptr(DataMap* data) : ptr(data) {}
     data_ptr::data_ptr(DataTemplate* data) : ptr(data) {}
 
-	// data_map
-	data_ptr& data_map::operator [](const std::string& key) {
+    // data_map
+    data_ptr& data_map::operator [](const std::string& key) {
         if (data.find(key) == data.end() && parent)
         {
             return (*parent)[key];
         }
-		return data[key];
-	}
-	bool data_map::empty() {
-		return data.empty();
-	}
-	bool data_map::has(const std::string& key) {
+        return data[key];
+    }
+    bool data_map::empty() {
+        return data.empty();
+    }
+    bool data_map::has(const std::string& key) {
         bool local_has = data.find(key) != data.end();
-		return !local_has && parent ? parent->has(key) : local_has;
-	}
+        return !local_has && parent ? parent->has(key) : local_has;
+    }
 
-	// data_ptr
-	template<>
-	void data_ptr::operator = (const bool& data) {
-		ptr.reset(new DataBool(data));
-	}
+    // data_ptr
+    template<>
+    void data_ptr::operator = (const bool& data) {
+        ptr.reset(new DataBool(data));
+    }
 
-	template<>
-	void data_ptr::operator = (const std::string& data) {
-		ptr.reset(new DataValue(data));
-	}
+    template<>
+    void data_ptr::operator = (const std::string& data) {
+        ptr.reset(new DataValue(data));
+    }
 
-	template<>
-	void data_ptr::operator = (const data_map& data) {
-		ptr.reset(new DataMap(data));
-	}
+    template<>
+    void data_ptr::operator = (const data_map& data) {
+        ptr.reset(new DataMap(data));
+    }
 
-	template<>
-	void data_ptr::operator = (const data_list& data) {
-		ptr.reset(new DataList(data));
-	}
+    template<>
+    void data_ptr::operator = (const data_list& data) {
+        ptr.reset(new DataList(data));
+    }
 
-	data_ptr& data_ptr::operator = (std::string&& data) {
-		ptr.reset(new DataValue(std::move(data)));
+    data_ptr& data_ptr::operator = (std::string&& data) {
+        ptr.reset(new DataValue(std::move(data)));
         return *this;
-	}
+    }
 
-	data_ptr& data_ptr::operator = (data_map&& data) {
-		ptr.reset(new DataMap(std::move(data)));
+    data_ptr& data_ptr::operator = (data_map&& data) {
+        ptr.reset(new DataMap(std::move(data)));
         return *this;
-	}
+    }
 
-	data_ptr& data_ptr::operator = (data_list&& data) {
-		ptr.reset(new DataList(std::move(data)));
+    data_ptr& data_ptr::operator = (data_list&& data) {
+        ptr.reset(new DataList(std::move(data)));
         return *this;
-	}
+    }
 
-	void data_ptr::push_back(const data_ptr& data) {
+    void data_ptr::push_back(const data_ptr& data) {
         if (!ptr) {
             ptr.reset(new DataList(data_list()));
         }
         data_list& list = ptr->getlist();
         list.push_back(data);
-	}
+    }
 
-	// base data
+    // base data
     std::string Data::getvalue()
-	{
-		throw TemplateException("Data item is not a value") ;
-	}
+    {
+        throw TemplateException("Data item is not a value") ;
+    }
 
-	data_list& Data::getlist()
-	{
-		throw TemplateException("Data item is not a list") ;
-	}
-	data_map& Data::getmap()
-	{
-		throw TemplateException("Data item is not a dictionary") ;
-	}
+    data_list& Data::getlist()
+    {
+        throw TemplateException("Data item is not a list") ;
+    }
+    data_map& Data::getmap()
+    {
+        throw TemplateException("Data item is not a dictionary") ;
+    }
     // data bool
     std::string DataBool::getvalue()
-	{
-		return m_value ? "true" : "false" ;
-	}
-	bool DataBool::empty()
-	{
-		return !m_value;
-	}
+    {
+        return m_value ? "true" : "false" ;
+    }
+    bool DataBool::empty()
+    {
+        return !m_value;
+    }
     void DataBool::dump(int indent)
     {
         std::cout << "(bool)" << getvalue() << std::endl;
     }
-	// data value
+    // data value
     std::string DataValue::getvalue()
-	{
-		return m_value ;
-	}
-	bool DataValue::empty()
-	{
-		return m_value.empty();
-	}
+    {
+        return m_value ;
+    }
+    bool DataValue::empty()
+    {
+        return m_value.empty();
+    }
     void DataValue::dump(int indent)
     {
         std::string text = boost::algorithm::replace_all_copy(getvalue(), "\n", "\\n");
         std::cout << "\"" << text << "\"" << std::endl;
     }
-	// data list
-	data_list& DataList::getlist()
-	{
-		return m_items ;
-	}
+    // data list
+    data_list& DataList::getlist()
+    {
+        return m_items ;
+    }
 
-	bool DataList::empty()
-	{
-		return m_items.empty();
-	}
+    bool DataList::empty()
+    {
+        return m_items.empty();
+    }
 
     void DataList::dump(int indent)
     {
@@ -431,15 +431,15 @@ namespace impl
             ++n;
         };
     }
-	// data map
-	data_map& DataMap::getmap()
-	{
-		return m_items ;
-	}
-	bool DataMap::empty()
-	{
-		return m_items.empty();
-	}
+    // data map
+    data_map& DataMap::getmap()
+    {
+        return m_items ;
+    }
+    bool DataMap::empty()
+    {
+        return m_items.empty();
+    }
     void DataMap::dump(int indent)
     {
         std::cout << "(map)" << std::endl;
@@ -458,14 +458,14 @@ namespace impl
     }
 
     std::string DataTemplate::getvalue()
-	{
-		return "";
-	}
+    {
+        return "";
+    }
 
-	bool DataTemplate::empty()
-	{
-		return false;
-	}
+    bool DataTemplate::empty()
+    {
+        return false;
+    }
 
     void DataTemplate::dump(int indent)
     {
@@ -476,7 +476,7 @@ namespace impl
     {
         std::ostringstream stream;
         eval(stream, data, param_values);
-		return stream.str() ;
+        return stream.str() ;
     }
 
     void DataTemplate::eval(std::ostream &stream, data_map & data, data_list * param_values)
@@ -508,10 +508,10 @@ namespace impl
 
         // Recursively calls gettext on each node in the tree.
         // gettext returns the appropriate text for that node.
-		for (auto node : m_tree)
-		{
-			node->gettext(stream, *use_data) ;
-		}
+        for (auto node : m_tree)
+        {
+            node->gettext(stream, *use_data) ;
+        }
     }
 
     bool data_ptr::is_template() const
@@ -536,22 +536,22 @@ namespace impl
         }
     }
 
-	//////////////////////////////////////////////////////////////////////////
-	// parse_path
-	//////////////////////////////////////////////////////////////////////////
-	data_ptr& data_map::parse_path(const std::string & key, bool create)
-	{
+    //////////////////////////////////////////////////////////////////////////
+    // parse_path
+    //////////////////////////////////////////////////////////////////////////
+    data_ptr& data_map::parse_path(const std::string & key, bool create)
+    {
         if (key.empty())
         {
             throw key_error("empty map key");
         }
 
-		// check for dotted notation, i.e [foo.bar]
-		size_t index = key.find(".") ;
-		if (index == std::string::npos)
-		{
-			if (!has(key))
-			{
+        // check for dotted notation, i.e [foo.bar]
+        size_t index = key.find(".") ;
+        if (index == std::string::npos)
+        {
+            if (!has(key))
+            {
                 if (!create)
                 {
                     printf("invalid map key: %s\n", key.c_str());
@@ -559,18 +559,18 @@ namespace impl
                 }
                 data[key] = make_data("");
             }
-			return operator[](key) ;
-		}
+            return operator[](key) ;
+        }
 
         std::string sub_key = key.substr(0, index) ;
-		if (!has(sub_key))
-		{
+        if (!has(sub_key))
+        {
             printf("invalid map key: %s\n", sub_key.c_str());
-			throw key_error("invalid map key");
-		}
+            throw key_error("invalid map key");
+        }
 
-		return operator[](sub_key)->getmap().parse_path(key.substr(index+1), create) ;
-	}
+        return operator[](sub_key)->getmap().parse_path(key.substr(index+1), create) ;
+    }
 
     void dump_data(data_ptr data)
     {
@@ -845,9 +845,9 @@ namespace impl
         return tokens;
     }
 
-	//////////////////////////////////////////////////////////////////////////
-	// Expr parser
-	//////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    // Expr parser
+    //////////////////////////////////////////////////////////////////////////
 
     // Expression grammar
     //
@@ -1060,40 +1060,40 @@ namespace impl
         return ldata;
     }
 
-	//////////////////////////////////////////////////////////////////////////
-	// Node classes
-	//////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    // Node classes
+    //////////////////////////////////////////////////////////////////////////
 
-	// defaults, overridden by subclasses with children
-	void Node::set_children( node_vector & )
-	{
-		throw TemplateException(get_line(), "This node type cannot have children") ;
-	}
+    // defaults, overridden by subclasses with children
+    void Node::set_children( node_vector & )
+    {
+        throw TemplateException(get_line(), "This node type cannot have children") ;
+    }
 
-	node_vector & Node::get_children()
-	{
-		throw TemplateException(get_line(), "This node type cannot have children") ;
-	}
+    node_vector & Node::get_children()
+    {
+        throw TemplateException(get_line(), "This node type cannot have children") ;
+    }
 
-	// NodeText
-	NodeType NodeText::gettype()
-	{
-		return NODE_TYPE_TEXT ;
-	}
+    // NodeText
+    NodeType NodeText::gettype()
+    {
+        return NODE_TYPE_TEXT ;
+    }
 
-	void NodeText::gettext( std::ostream &stream, data_map & )
-	{
-		stream << m_text ;
-	}
+    void NodeText::gettext( std::ostream &stream, data_map & )
+    {
+        stream << m_text ;
+    }
 
-	// NodeVar
-	NodeType NodeVar::gettype()
-	{
-		return NODE_TYPE_VAR ;
-	}
+    // NodeVar
+    NodeType NodeVar::gettype()
+    {
+        return NODE_TYPE_VAR ;
+    }
 
-	void NodeVar::gettext( std::ostream &stream, data_map &data )
-	{
+    void NodeVar::gettext( std::ostream &stream, data_map &data )
+    {
         try
         {
             TokenIterator it(m_expr);
@@ -1106,38 +1106,38 @@ namespace impl
             e.set_line_if_missing(get_line());
             throw e;
         }
-	}
+    }
 
-	// NodeVar
-	void NodeParent::set_children( node_vector &children )
-	{
-		m_children.assign(children.begin(), children.end()) ;
-	}
+    // NodeVar
+    void NodeParent::set_children( node_vector &children )
+    {
+        m_children.assign(children.begin(), children.end()) ;
+    }
 
-	node_vector & NodeParent::get_children()
-	{
-		return m_children;
-	}
+    node_vector & NodeParent::get_children()
+    {
+        return m_children;
+    }
 
-	// NodeFor
-	NodeFor::NodeFor(const token_vector & tokens, bool is_top, uint32_t line)
+    // NodeFor
+    NodeFor::NodeFor(const token_vector & tokens, bool is_top, uint32_t line)
     :   NodeParent(line), m_is_top(is_top)
-	{
+    {
         TokenIterator tok(tokens);
         tok.match(FOR_TOKEN, "expected 'for'");
         m_val = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
         tok.match(IN_TOKEN, "expected 'in'");
         m_key = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
         tok.match(END_TOKEN, "expected end of statement");
-	}
+    }
 
-	NodeType NodeFor::gettype()
-	{
-		return NODE_TYPE_FOR ;
-	}
+    NodeType NodeFor::gettype()
+    {
+        return NODE_TYPE_FOR ;
+    }
 
-	void NodeFor::gettext( std::ostream &stream, data_map &data )
-	{
+    void NodeFor::gettext( std::ostream &stream, data_map &data )
+    {
         try
         {
             data_ptr saved_loop;
@@ -1179,9 +1179,9 @@ namespace impl
             e.set_line_if_missing(get_line());
             throw e;
         }
-	}
+    }
 
-	// NodeIf
+    // NodeIf
     NodeIf::NodeIf(const token_vector & expr, uint32_t line)
     :   NodeParent(line),
         m_expr(expr),
@@ -1198,33 +1198,33 @@ namespace impl
         }
     }
 
-	NodeType NodeIf::gettype()
-	{
-		return m_if_type ;
-	}
+    NodeType NodeIf::gettype()
+    {
+        return m_if_type ;
+    }
 
     void NodeIf::set_else_if(node_ptr else_if)
     {
         m_else_if = else_if;
     }
 
-	void NodeIf::gettext( std::ostream &stream, data_map &data )
-	{
-		if (is_true(data))
-		{
-			for(size_t j = 0 ; j < m_children.size() ; ++j)
-			{
-				m_children[j]->gettext(stream, data) ;
-			}
-		}
+    void NodeIf::gettext( std::ostream &stream, data_map &data )
+    {
+        if (is_true(data))
+        {
+            for(size_t j = 0 ; j < m_children.size() ; ++j)
+            {
+                m_children[j]->gettext(stream, data) ;
+            }
+        }
         else if (m_else_if)
         {
             m_else_if->gettext(stream, data);
         }
-	}
+    }
 
-	bool NodeIf::is_true( data_map &data )
-	{
+    bool NodeIf::is_true( data_map &data )
+    {
         try
         {
             TokenIterator it(m_expr);
@@ -1253,14 +1253,14 @@ namespace impl
             e.set_line_if_missing(get_line());
             throw e;
         }
-	}
+    }
 
-	bool NodeIf::is_else()
+    bool NodeIf::is_else()
     {
         return m_if_type == NODE_TYPE_ELSE;
     }
 
-	// NodeDef
+    // NodeDef
     NodeDef::NodeDef(const token_vector & expr, uint32_t line)
     :   NodeParent(line)
     {
@@ -1287,13 +1287,13 @@ namespace impl
         tok.match(END_TOKEN, "expected end of statement");
     }
 
-	NodeType NodeDef::gettype()
-	{
-		return NODE_TYPE_DEF ;
-	}
+    NodeType NodeDef::gettype()
+    {
+        return NODE_TYPE_DEF ;
+    }
 
-	void NodeDef::gettext( std::ostream &stream, data_map &data )
-	{
+    void NodeDef::gettext( std::ostream &stream, data_map &data )
+    {
         // Follow the key path.
         data_ptr& target = data.parse_path(m_name, true);
 
@@ -1303,16 +1303,16 @@ namespace impl
         DataTemplate * tmpl = new DataTemplate(m_children);
         tmpl->params() = m_params;
         target = data_ptr(tmpl);
-	}
+    }
 
-	// NodeSet
-	NodeType NodeSet::gettype()
-	{
-		return NODE_TYPE_SET ;
-	}
+    // NodeSet
+    NodeType NodeSet::gettype()
+    {
+        return NODE_TYPE_SET ;
+    }
 
-	void NodeSet::gettext( std::ostream &stream, data_map &data )
-	{
+    void NodeSet::gettext( std::ostream &stream, data_map &data )
+    {
         TokenIterator tok(m_expr);
         tok.match(SET_TOKEN, "expected 'set'");
         std::string path = tok.match(KEY_PATH_TOKEN, "expected key path")->get_value();
@@ -1324,17 +1324,17 @@ namespace impl
         // Follow the key path, creating the key if missing.
         data_ptr& target = data.parse_path(path, true);
         target = value;
-	}
+    }
 
     inline size_t count_newlines(const std::string & text)
     {
         return std::count(text.begin(), text.end(), '\n');
     }
 
-	//////////////////////////////////////////////////////////////////////////
-	// tokenize
-	// parses a template into nodes (text, for, if, variable, def)
-	//////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
+    // tokenize
+    // parses a template into nodes (text, for, if, variable, def)
+    //////////////////////////////////////////////////////////////////////////
 
     TemplateParser::TemplateParser(const std::string & text, node_vector & nodes)
     :   m_text(text),
@@ -1590,22 +1590,22 @@ namespace impl
 
 } // namespace impl
 
-	/************************************************************************
-	* parse
-	*
-	*  1. tokenizes template
-	*  2. parses tokens into tree
-	*  3. resolves template
-	*  4. returns converted text
-	************************************************************************/
+    /************************************************************************
+    * parse
+    *
+    *  1. tokenizes template
+    *  2. parses tokens into tree
+    *  3. resolves template
+    *  4. returns converted text
+    ************************************************************************/
     std::string parse(const std::string &templ_text, data_map &data)
-	{
-		return DataTemplate(templ_text).eval(data);
-	}
-	void parse(std::ostream &stream, const std::string &templ_text, data_map &data)
-	{
+    {
+        return DataTemplate(templ_text).eval(data);
+    }
+    void parse(std::ostream &stream, const std::string &templ_text, data_map &data)
+    {
         DataTemplate(templ_text).eval(stream, data);
-	}
+    }
 }
 
 #endif // defined(CPPTEMPL_UNIT_TEST)
