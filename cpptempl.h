@@ -1,6 +1,6 @@
 // Copyright (c) 2010-2014 Ryan Ginstrom
 // Copyright (c) 2014 Martinho Fernandes
-// Copyright (c) 2014 Freescale Semiconductor, Inc.
+// Copyright (c) 2014-2016 Freescale Semiconductor, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,7 +25,16 @@
 #ifdef _WIN32
 #pragma warning( disable : 4996 ) // 'std::copy': Function call with parameters that may be unsafe - this call relies on the caller to check that the passed values are correct. To disable this warning, use -D_SCL_SECURE_NO_WARNINGS. See documentation on how to use Visual C++ 'Checked Iterators'
 #pragma warning( disable : 4512 ) // 'std::copy': Function call with parameters that may be unsafe - this call relies on the caller to check that the passed values are correct. To disable this warning, use -D_SCL_SECURE_NO_WARNINGS. See documentation on how to use Visual C++ 'Checked Iterators'
-#endif
+#define NOEXCEPT // hide unsupported noexcept keyword under VC++
+#else
+#define NOEXCEPT noexcept
+#endif  // NOEXCEPT
+
+#if __MINGW32__
+#define NOTHROW throw() // add throw() keyword under MinGW
+#else
+#define NOTHROW
+#endif  // NOTHROW
 
 #include <string>
 #include <vector>
@@ -56,6 +65,7 @@ namespace cpptempl
         virtual std::string getvalue();
         virtual data_list& getlist();
         virtual data_map& getmap() ;
+        virtual int getint() const;
         virtual void dump(int indent=0) = 0 ;
     };
 
@@ -65,6 +75,19 @@ namespace cpptempl
     public:
         DataBool(bool value) : m_value(value) {}
         std::string getvalue();
+        virtual int getint() const;
+        bool empty();
+        virtual void dump(int indent=0) ;
+    };
+
+    class DataInt : public Data
+    {
+        int m_value;
+    public:
+        DataInt(int value) : m_value(value) {}
+        DataInt(unsigned int value) : m_value(value) {}
+        std::string getvalue();
+        virtual int getint() const;
         bool empty();
         virtual void dump(int indent=0) ;
     };
@@ -76,6 +99,7 @@ namespace cpptempl
         DataValue(const std::string& value) : m_value(value){}
         DataValue(std::string&& value) : m_value(std::move(value)){}
         std::string getvalue();
+        virtual int getint() const;
         bool empty();
         virtual void dump(int indent=0) ;
     };
@@ -98,6 +122,7 @@ namespace cpptempl
             this->operator =(data);
         }
         data_ptr(DataBool* data);
+        data_ptr(DataInt* data);
         data_ptr(DataValue* data);
         data_ptr(DataList* data);
         data_ptr(DataMap* data);
@@ -164,6 +189,8 @@ namespace cpptempl
     };
 
     template<> void data_ptr::operator = (const bool& data);
+    template<> void data_ptr::operator = (const int& data);
+    template<> void data_ptr::operator = (const unsigned int& data);
     template<> void data_ptr::operator = (const std::string& data);
     template<> void data_ptr::operator = (const data_map& data);
     template<> void data_ptr::operator = (const data_list& data);
@@ -187,13 +214,21 @@ namespace cpptempl
         void set_reason(std::string reason) { m_reason = reason; }
         void set_line_if_missing(size_t line);
 
-        virtual const char* what() const noexcept { return m_reason.c_str(); }
+        virtual const char* what() const NOEXCEPT NOTHROW { return m_reason.c_str(); }
     };
 
     // convenience functions for making data objects
     inline data_ptr make_data(bool val)
     {
         return data_ptr(new DataBool(val)) ;
+    }
+    inline data_ptr make_data(int val)
+    {
+        return data_ptr(new DataInt(val)) ;
+    }
+    inline data_ptr make_data(unsigned int val)
+    {
+        return data_ptr(new DataInt(val)) ;
     }
     inline data_ptr make_data(std::string &val)
     {

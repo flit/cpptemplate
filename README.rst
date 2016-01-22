@@ -6,7 +6,7 @@ Copyright
 ==================
 | Copyright (c) 2010-2014 Ryan Ginstrom
 | Copyright (c) 2014 Martinho Fernandes
-| Copyright (c) 2014 Freescale Semiconductor, Inc.
+| Copyright (c) 2014-2016 Freescale Semiconductor, Inc.
 
 | Original author: Ryan Ginstrom
 | Additions by Martinho Fernandes
@@ -134,10 +134,21 @@ to lowest precedence. x and y are subexpressions, and p is a predicate subexpres
 ``sub(x,y,...)``    Subtemplate invocation with parameters
 ``(x)``             Parenthesized subexpression
 ``!x``              True if x is empty or false
+``-x``              Integer negation
 ``x || y``          Boolean or
 ``x && y``          Boolean and
 ``x == y``          Equality
 ``x != y``          Inequality
+``x > y``           Greater than
+``x >= y``          Greater or equal
+``x < y``           Less than
+``x <= y``          Less or equal
+``x + y``           Add
+``x - y``           Subtract
+``x * y``           Multiply
+``x / y``           Divide
+``x % y``           Modulus
+``x & y``           String concatenation
 ``x if p else y``   Inline if statement
 ==================  =======================================================
 
@@ -148,13 +159,24 @@ The Boolean OR operator (``||`` or ``or``) does not produces a Boolean result. I
 returns the value of its non-empty, or true, operand. If both operands are non-empty, then
 it returns the left operand's value. Thus, ``false or 'lizard'`` returns ``'lizard'``.
 
+Comparison operators such as ``>`` or ``<`` can be used on both integers and strings. Strings
+are compared alphabetically. Only if both operands are integers will they be compared
+numerically.
+
+The binary arithmetic operators will convert their operands to a signed integer, if not
+one already, before performing the operation. The result is always an integer.
+
 There are also a few pseudo-functions that may be used in expressions. More may be added
 later.
 
 ===============  ===========================================================
-``count(x)``     Returns the number of items in the specified list.
-``defined(x)``   Returns true if the key path specifies an existing key.
-``empty(x)``     True if the variable path x is the empty string.
+``count(x)``            Returns the number of items in the specified list.
+``defined(x)``          Returns true if the key path specifies an existing key.
+``empty(x)``            True if the variable path x is the empty string.
+``int(x)``              Coerce to integer value
+``str(x)``              Coerce to string value
+``addIndent(x,y)``      If y is not empty, it will add x-spaces on begin of y.
+``removeNewLine(x)``    Will remove next newline character, when x is empty string.
 ===============  ===========================================================
 
 Supported value types in expressions:
@@ -162,6 +184,8 @@ Supported value types in expressions:
 ==============  ===================================================================
 ``key``         Name of key in top-level data_map (simple case of key path).
 ``key.path``    Dotted path of data_map keys.
+``123``         Signed integer (32-bit).
+``0x123``       Hexadecimal signed integer.
 ``true``        Boolean true.
 ``false``       Boolean false.
 ``"text"``      String literal with double quotes.
@@ -186,15 +210,16 @@ Loop variable
 -------------
 Inside a for statement block, a "loop" map variable is defined with these keys:
 
-==========  =======================================================
-``index``   Base-1 current index of loop
-``index0``  Base-0 current index of loop
-``first``   True if this is the first iteration through the loop
-``last``    True if this is the last iteration through the loop
-``even``    True on all even iterations, starting with the second
-``odd``     True on all odd iterations, starting with the first
-``count``   Total number of elements in the list
-==========  =======================================================
+==========================  =======================================================
+``index``                   Base-1 current index of loop
+``index0``                  Base-0 current index of loop
+``first``                   True if this is the first iteration through the loop
+``last``                    True if this is the last iteration through the loop
+``even``                    True on all even iterations, starting with the second
+``odd``                     True on all odd iterations, starting with the first
+``count``                   Total number of elements in the list
+''addNewLineIfNotLast''     This will add new line when it is not last iteration through the loop.
+==========================  =======================================================
 
 The "loop" variable remains available after the for statement completes. It will also be
 accessible in the data map after the template finishes execution. Of course, a subsequent
@@ -255,14 +280,19 @@ Types
 ==================
 All values are stored in a ``data_ptr`` variant object.
 
-These are the built-in data types:
+These are the supported data types and associated ``Data`` subclasses:
 
-- ``bool``
-- ``std::string``
-- ``data_list``
-- ``data_map``
-- subtemplate
+=============== ================
+``std::string`` ``DataValue``
+``bool``        ``DataBool``
+``int``         ``DataInt``
+``data_list``   ``DataList``
+``data_map``    ``DataMap``
+subtemplate     ``DataTemplate``
+=============== ================
 
+You normally do not need to use the ``Data`` subclasses directly. ``data_ptr`` objects can
+be assigned any of the supported types directly. The same applies to ``data_map`` values.
 All other types are converted to strings using ``boost::lexical_cast`` when set in
 a ``data_ptr`` or ``data_map``.
 
@@ -320,7 +350,7 @@ values.
 
 Handy Functions
 ========================
-``make_data()`` : Feed it a bool, string, data_map, or data_list to create a data entry.
+``make_data()`` : Feed it a bool, int, string, data_map, or data_list to create a data entry.
 Example::
 
     data_map person ;

@@ -1,6 +1,6 @@
 // Copyright (c) 2010-2014 Ryan Ginstrom
 // Copyright (c) 2014 Martinho Fernandes
-// Copyright (c) 2014 Freescale Semiconductor, Inc.
+// Copyright (c) 2014-2016 Freescale Semiconductor, Inc.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -25,12 +25,14 @@
 #endif
 
 #include "cpptempl.h"
-
+#include <cctype>
 #include <sstream>
 #include <algorithm>
 #include <stack>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+#include <cassert>
+#include <cstdlib>
 
 namespace cpptempl
 {
@@ -43,6 +45,7 @@ namespace impl
         INVALID_TOKEN,
         KEY_PATH_TOKEN,
         STRING_LITERAL_TOKEN,
+        INT_LITERAL_TOKEN,
         TRUE_TOKEN,
         FALSE_TOKEN,
         FOR_TOKEN,
@@ -60,6 +63,16 @@ namespace impl
         NOT_TOKEN,
         EQ_TOKEN,
         NEQ_TOKEN,
+        GE_TOKEN,
+        LE_TOKEN,
+        GT_TOKEN = '>',
+        LT_TOKEN = '<',
+        PLUS_TOKEN = '+',
+        MINUS_TOKEN = '-',
+        TIMES_TOKEN = '*',
+        DIVIDE_TOKEN = '/',
+        MOD_TOKEN = '%',
+        CONCAT_TOKEN = '&',
         ASSIGN_TOKEN = '=',
         OPEN_PAREN_TOKEN = '(',
         CLOSE_PAREN_TOKEN = ')',
@@ -128,8 +141,10 @@ namespace impl
         data_ptr parse_oterm();
         data_ptr parse_bterm();
         data_ptr parse_bfactor();
+        data_ptr parse_gfactor();
+        data_ptr parse_afactor();
+        data_ptr parse_mfactor();
         data_ptr parse_factor();
-        data_ptr parse_var();
         data_ptr get_var_value(const std::string & path, data_list & params);
     };
 
@@ -246,6 +261,7 @@ namespace impl
         INIT_STATE,             //!< Initial state, skip whitespace, process single char tokens.
         KEY_PATH_STATE,         //!< Scan a key path.
         STRING_LITERAL_STATE,   //!< Scan a string literal.
+        INT_LITERAL_STATE,      //!< Scan an integer literal.
         COMMENT_STATE,          //!< Single-line comment.
     };
 
@@ -285,7 +301,7 @@ namespace impl
     inline bool is_key_path_char(char c);
     TokenType get_keyword_token(const std::string & s);
     void create_id_token(token_vector & tokens, const std::string & s);
-    int append_string_escape(std::string & str, std::function<char(int)> peek);
+    int append_string_escape(std::string & str, std::function<char(unsigned)> peek);
     token_vector tokenize_statement(const std::string & text);
     inline size_t count_newlines(const std::string & text);
 
@@ -297,12 +313,18 @@ namespace impl
 }
 #else
 
+    //! Flag to track whether to remove the next newline that appears in the output.
+    //!
+    //! @bug This global breaks reentrancy.
+    static bool s_removeNewLine;
+
     //////////////////////////////////////////////////////////////////////////
     // Data classes
     //////////////////////////////////////////////////////////////////////////
 
     // These ctors are defined here to resolve definition ordering issues with clang.
     data_ptr::data_ptr(DataBool* data) : ptr(data) {}
+    data_ptr::data_ptr(DataInt* data) : ptr(data) {}
     data_ptr::data_ptr(DataValue* data) : ptr(data) {}
     data_ptr::data_ptr(DataList* data) : ptr(data) {}
     data_ptr::data_ptr(DataMap* data) : ptr(data) {}
@@ -328,6 +350,16 @@ namespace impl
     template<>
     void data_ptr::operator = (const bool& data) {
         ptr.reset(new DataBool(data));
+    }
+
+    template<>
+    void data_ptr::operator = (const int& data) {
+        ptr.reset(new DataInt(data));
+    }
+
+    template<>
+    void data_ptr::operator = (const unsigned int& data) {
+        ptr.reset(new DataInt(data));
     }
 
     template<>
@@ -382,6 +414,10 @@ namespace impl
     {
         throw TemplateException("Data item is not a dictionary") ;
     }
+    int Data::getint() const
+    {
+        return 0;
+    }
     // data bool
     std::string DataBool::getvalue()
     {
@@ -395,6 +431,29 @@ namespace impl
     {
         std::cout << "(bool)" << getvalue() << std::endl;
     }
+    int DataBool::getint() const
+    {
+        return static_cast<int>(m_value);
+    }
+    // data int
+    std::string DataInt::getvalue()
+    {
+        std::ostringstream stream;
+        stream << m_value;
+        return stream.str();
+    }
+    bool DataInt::empty()
+    {
+        return !m_value;
+    }
+    void DataInt::dump(int indent)
+    {
+        std::cout << "(int)" << m_value << std::endl;
+    }
+    int DataInt::getint() const
+    {
+        return m_value;
+    }
     // data value
     std::string DataValue::getvalue()
     {
@@ -403,6 +462,10 @@ namespace impl
     bool DataValue::empty()
     {
         return m_value.empty();
+    }
+    int DataValue::getint() const
+    {
+        return static_cast<int>(std::strtol(m_value.c_str(), NULL, 0));
     }
     void DataValue::dump(int indent)
     {
@@ -680,7 +743,7 @@ namespace impl
         }
     }
 
-    int append_string_escape(std::string & str, std::function<char(int)> peek)
+    int append_string_escape(std::string & str, std::function<char(unsigned)> peek)
     {
         char esc = peek(1);
         std::string hex;
@@ -713,13 +776,13 @@ namespace impl
     {
         token_vector tokens;
         lexer_state_t state=INIT_STATE;
-        int i=0;
+        unsigned i=0;
         uint32_t pos=0;
         char str_open_quote=0;
-        std::string str_literal;
+        std::string literal;
 
         // closure to get the next char without advancing
-        auto peek = [&](int n=1) { return i+n < text.size() ? text[i+n] : 0; };
+        auto peek = [&](unsigned n) { return i+n < text.size() ? text[i+n] : 0; };
 
         for (; i < text.size(); ++i)
         {
@@ -733,24 +796,35 @@ namespace impl
                     {
                         continue;
                     }
+                    else if (isdigit(c))
+                    {
+                        literal = c;
+                        if (c == '0' && peek(1) == 'x')
+                        {
+                            literal += "x";
+                            ++i;
+                        }
+                        state = INT_LITERAL_STATE;
+                    }
                     else if (is_key_path_char(c))
                     {
                         pos = i;
                         state = KEY_PATH_STATE;
                     }
-                    else if (c == '(' || c == ')' || c == ',')
+                    else if (c == '(' || c == ')' || c == ',' || c == '+' || c == '*'
+                            || c == '/' || c == '%')
                     {
                         tokens.emplace_back(static_cast<TokenType>(c));
                     }
                     else if (c == '\"' || c == '\'')
                     {
                         str_open_quote = c;
-                        str_literal.clear();
+                        literal.clear();
                         state = STRING_LITERAL_STATE;
                     }
                     else if (c == '=')
                     {
-                        if (peek() == '=')
+                        if (peek(1) == '=')
                         {
                             tokens.emplace_back(EQ_TOKEN);
                             ++i;
@@ -760,9 +834,33 @@ namespace impl
                             tokens.emplace_back(ASSIGN_TOKEN);
                         }
                     }
+                    else if (c == '>')
+                    {
+                        if (peek(1) == '=')
+                        {
+                            tokens.emplace_back(GE_TOKEN);
+                            ++i;
+                        }
+                        else
+                        {
+                            tokens.emplace_back(GT_TOKEN);
+                        }
+                    }
+                    else if (c == '<')
+                    {
+                        if (peek(1) == '=')
+                        {
+                            tokens.emplace_back(LE_TOKEN);
+                            ++i;
+                        }
+                        else
+                        {
+                            tokens.emplace_back(LT_TOKEN);
+                        }
+                    }
                     else if (c == '!')
                     {
-                        if (peek() == '=')
+                        if (peek(1) == '=')
                         {
                             tokens.emplace_back(NEQ_TOKEN);
                             ++i;
@@ -772,26 +870,40 @@ namespace impl
                             tokens.emplace_back(NOT_TOKEN);
                         }
                     }
-                    else if (c == '&' && peek() == '&')
+                    else if (c == '&')
                     {
-                        tokens.emplace_back(AND_TOKEN);
-                        ++i;
+                        if (peek(1) == '&')
+                        {
+                            tokens.emplace_back(AND_TOKEN);
+                            ++i;
+                        }
+                        else
+                        {
+                            tokens.emplace_back(CONCAT_TOKEN);
+                        }
                     }
-                    else if (c == '|' && peek() == '|')
+                    else if (c == '|' && peek(1) == '|')
                     {
                         tokens.emplace_back(OR_TOKEN);
                         ++i;
                     }
-                    else if (c == '-' && peek() == '-')
+                    else if (c == '-')
                     {
-                        state = COMMENT_STATE;
+                        if (peek(1) == '-')
+                        {
+                            state = COMMENT_STATE;
+                        }
+                        else
+                        {
+                            tokens.emplace_back(MINUS_TOKEN);
+                        }
                     }
                     else
                     {
-                        str_literal = "unexpected character '";
-                        str_literal += c;
-                        str_literal += "'";
-                        throw TemplateException(str_literal);
+                        literal = "unexpected character '";
+                        literal += c;
+                        literal += "'";
+                        throw TemplateException(literal);
                     }
                     break;
 
@@ -810,16 +922,29 @@ namespace impl
                     if (c == str_open_quote)
                     {
                         // Create the string literal token and return to init state.
-                        tokens.emplace_back(STRING_LITERAL_TOKEN, str_literal);
+                        tokens.emplace_back(STRING_LITERAL_TOKEN, literal);
                         state = INIT_STATE;
                     }
                     else if (c == '\\')
                     {
-                        i += append_string_escape(str_literal, peek);
+                        i += append_string_escape(literal, peek);
                     }
                     else
                     {
-                        str_literal += c;
+                        literal += c;
+                    }
+                    break;
+
+                case INT_LITERAL_STATE:
+                    if (isdigit(c))
+                    {
+                        literal += c;
+                    }
+                    else
+                    {
+                        tokens.emplace_back(INT_LITERAL_TOKEN, literal);
+                        state = INIT_STATE;
+                        --i;
                     }
                     break;
 
@@ -841,6 +966,10 @@ namespace impl
         {
             throw TemplateException("unterminated string literal");
         }
+        else if (state == INT_LITERAL_STATE)
+        {
+            tokens.emplace_back(INT_LITERAL_TOKEN, literal);
+        }
 
         return tokens;
     }
@@ -854,19 +983,23 @@ namespace impl
     // expr         ::= oterm [ "if" oterm "else" oterm ]
     // oterm        ::= bterm ( "or" bterm )*
     // bterm        ::= bfactor ( "and" bfactor )*
-    // bfactor      ::= factor [ ( "==" | "!=" ) factor ]
+    // bfactor      ::= gfactor [ ( "==" | "!=" ) gfactor ]
+    // gfactor      ::= afactor [ ( ">" | ">=" | "<" | "<=" ) afactor ]
+    // afactor      ::= mfactor [ ( "&" | "+" | "-" ) afactor ]
+    // mfactor      ::= factor [ ( "*" | "/" | "%" ) mfactor ]
     // factor       ::= "not" expr
+    //              |   "-" expr
     //              |   "(" expr ")"
     //              |   ( "true" | "false" )
-    //              |   var
-    // var          ::= KEY_PATH [ args ]
+    //              |   KEY_PATH [ args ]
+    //              |   INT
     // args         ::= "(" [ expr ( "," expr )* ")"
 
     data_ptr ExprParser::get_var_value(const std::string & path, data_list & params)
     {
         // Check if this is a pseudo function.
         bool is_fn = false;
-        if (path == "count" || path == "empty" || path == "defined")
+        if (path == "count" || path == "empty" || path == "defined" || path == "removeNewLine" || path == "addIndent" || path == "int" || path == "str")
         {
             is_fn = true;
         }
@@ -876,9 +1009,13 @@ namespace impl
             data_ptr result;
             if (is_fn)
             {
-                if (params.size() != 1)
+                if (params.size() != 1 && path != "addIndent")
                 {
                     throw TemplateException("function " + path + " requires 1 parameter");
+                }
+                else if (params.size() != 2 && path == "addIndent")
+                {
+                    throw TemplateException("function " + path + " requires 2 parameters");
                 }
 
                 if (path == "count")
@@ -893,6 +1030,39 @@ namespace impl
                 {
                     // TODO: handle undefined case for defined fn
                     result = true;
+                }
+                else if (path == "removeNewLine")
+                {
+                    s_removeNewLine = params[0]->empty();
+                    result = "";
+                }
+                else if (path == "addIndent")
+                {
+                    std::stringstream ss(params[1]->getvalue());
+                    if (!ss.eof())
+                    {
+                        std::string line;
+                        std::string resultValue;
+                        int c = 0;
+                        while(std::getline(ss, line))
+                        {
+                           ++c;
+                           if (c > 1)
+                           {
+                               resultValue += '\n';
+                           }
+                           resultValue += params[0]->getvalue() + line;
+                        }
+                        result = resultValue;
+                    }
+                }
+                else if (path == "int")
+                {
+                    result = params[0]->getint();
+                }
+                else if (path == "str")
+                {
+                    result = params[0]->getvalue();
                 }
             }
             else
@@ -911,83 +1081,88 @@ namespace impl
 
             return result;
         }
-        catch (data_map::key_error & e)
+        catch (data_map::key_error &)
         {
             // Return an empty string for invalid key so it will eval to false.
             return "";
         }
     }
 
-    data_ptr ExprParser::parse_var()
-    {
-        const Token * path = m_tok.match(KEY_PATH_TOKEN, "expected key path");
-
-        data_list params;
-        if (m_tok->get_type() == OPEN_PAREN_TOKEN)
-        {
-            m_tok.match(OPEN_PAREN_TOKEN);
-
-            while (m_tok->get_type() != CLOSE_PAREN_TOKEN)
-            {
-                params.push_back(parse_expr());
-
-                if (m_tok->get_type() != CLOSE_PAREN_TOKEN)
-                {
-                    m_tok.match(COMMA_TOKEN, "expected comma");
-                }
-            }
-            m_tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
-        }
-
-        return get_var_value(path->get_value(), params);
-    }
-
     data_ptr ExprParser::parse_factor()
     {
         TokenType tokType = m_tok->get_type();
         data_ptr result;
-        if (tokType == NOT_TOKEN)
+        switch (tokType)
         {
-            m_tok.next();
-            result = parse_expr()->empty();
-        }
-        else if (tokType == OPEN_PAREN_TOKEN)
-        {
-            m_tok.next();
-            result = parse_expr();
-            m_tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
-        }
-        else if (tokType == STRING_LITERAL_TOKEN)
-        {
-            result = m_tok.match(STRING_LITERAL_TOKEN)->get_value();
-        }
-        else if (tokType == TRUE_TOKEN)
-        {
-            m_tok.next();
-            result = true;
-        }
-        else if (tokType == FALSE_TOKEN)
-        {
-            m_tok.next();
-            result = false;
-        }
-        else
-        {
-            result = parse_var();
+            case NOT_TOKEN:
+                m_tok.next();
+                result = parse_expr()->empty();
+                break;
+            case MINUS_TOKEN:
+                m_tok.next();
+                result = -(parse_expr()->getint());
+                break;
+            case OPEN_PAREN_TOKEN:
+                m_tok.next();
+                result = parse_expr();
+                m_tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
+                break;
+            case STRING_LITERAL_TOKEN:
+                result = m_tok.match(STRING_LITERAL_TOKEN)->get_value();
+                break;
+            case TRUE_TOKEN:
+                m_tok.next();
+                result = true;
+                break;
+            case FALSE_TOKEN:
+                m_tok.next();
+                result = false;
+                break;
+            case INT_LITERAL_TOKEN:
+            {
+                const Token * literal = m_tok.match(INT_LITERAL_TOKEN, "expected int literal");
+                return new DataInt((int)std::strtol(literal->get_value().c_str(), NULL, 0));
+                break;
+            }
+            case KEY_PATH_TOKEN:
+            {
+                const Token * path = m_tok.match(KEY_PATH_TOKEN, "expected key path");
+
+                data_list params;
+                if (m_tok->get_type() == OPEN_PAREN_TOKEN)
+                {
+                    m_tok.match(OPEN_PAREN_TOKEN);
+
+                    while (m_tok->get_type() != CLOSE_PAREN_TOKEN)
+                    {
+                        params.push_back(parse_expr());
+
+                        if (m_tok->get_type() != CLOSE_PAREN_TOKEN)
+                        {
+                            m_tok.match(COMMA_TOKEN, "expected comma");
+                        }
+                    }
+                    m_tok.match(CLOSE_PAREN_TOKEN, "expected close paren");
+                }
+
+                return get_var_value(path->get_value(), params);
+            }
+            default:
+                throw TemplateException("syntax error");
         }
         return result;
     }
 
     data_ptr ExprParser::parse_bfactor()
     {
-        data_ptr ldata = parse_factor();
+        data_ptr ldata = parse_gfactor();
 
         TokenType tokType = m_tok->get_type();
         if (tokType == EQ_TOKEN || tokType == NEQ_TOKEN)
         {
             m_tok.next();
 
-            data_ptr rdata = parse_factor();
+            data_ptr rdata = parse_gfactor();
 
             std::string lhs = ldata->getvalue();
             std::string rhs = rdata->getvalue();
@@ -998,6 +1173,126 @@ namespace impl
                     break;
                 case NEQ_TOKEN:
                     ldata = (lhs != rhs);
+                    break;
+                default:
+                    break;
+            }
+        }
+        return ldata;
+    }
+
+    data_ptr ExprParser::parse_gfactor()
+    {
+        data_ptr ldata = parse_afactor();
+
+        TokenType tokType = m_tok->get_type();
+        if (tokType == GT_TOKEN || tokType == GE_TOKEN || tokType == LT_TOKEN || tokType == LE_TOKEN)
+        {
+            m_tok.next();
+
+            data_ptr rdata = parse_afactor();
+
+            std::shared_ptr<DataInt> li = std::dynamic_pointer_cast<DataInt>(ldata.get());
+            std::shared_ptr<DataInt> ri = std::dynamic_pointer_cast<DataInt>(rdata.get());
+
+            if (li && ri)
+            {
+                int l = li->getint();
+                int r = ri->getint();
+                switch (tokType)
+                {
+                    case GT_TOKEN:
+                        ldata = (l > r);
+                        break;
+                    case GE_TOKEN:
+                        ldata = (l >= r);
+                        break;
+                    case LT_TOKEN:
+                        ldata = (l < r);
+                        break;
+                    case LE_TOKEN:
+                        ldata = (l <= r);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            else
+            {
+                std::string lhs = ldata->getvalue();
+                std::string rhs = rdata->getvalue();
+                switch (tokType)
+                {
+                    case GT_TOKEN:
+                        ldata = (lhs > rhs);
+                        break;
+                    case GE_TOKEN:
+                        ldata = (lhs >= rhs);
+                        break;
+                    case LT_TOKEN:
+                        ldata = (lhs < rhs);
+                        break;
+                    case LE_TOKEN:
+                        ldata = (lhs <= rhs);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+        return ldata;
+    }
+
+    data_ptr ExprParser::parse_afactor()
+    {
+        data_ptr ldata = parse_mfactor();
+
+        TokenType tokType = m_tok->get_type();
+        if (tokType == PLUS_TOKEN || tokType == MINUS_TOKEN || tokType == CONCAT_TOKEN)
+        {
+            m_tok.next();
+
+            data_ptr rdata = parse_afactor();
+
+            switch (tokType)
+            {
+                case CONCAT_TOKEN:
+                    ldata = ldata->getvalue() + rdata->getvalue();
+                    break;
+                case PLUS_TOKEN:
+                    ldata = ldata->getint() + rdata->getint();
+                    break;
+                case MINUS_TOKEN:
+                    ldata = ldata->getint() - rdata->getint();
+                    break;
+                default:
+                    break;
+            }
+        }
+        return ldata;
+    }
+
+    data_ptr ExprParser::parse_mfactor()
+    {
+        data_ptr ldata = parse_factor();
+
+        TokenType tokType = m_tok->get_type();
+        if (tokType == TIMES_TOKEN || tokType == DIVIDE_TOKEN || tokType == MOD_TOKEN)
+        {
+            m_tok.next();
+
+            data_ptr rdata = parse_mfactor();
+
+            switch (tokType)
+            {
+                case TIMES_TOKEN:
+                    ldata = ldata->getint() * rdata->getint();
+                    break;
+                case DIVIDE_TOKEN:
+                    ldata = ldata->getint() / rdata->getint();
+                    break;
+                case MOD_TOKEN:
+                    ldata = ldata->getint() % rdata->getint();
                     break;
                 default:
                     break;
@@ -1081,9 +1376,46 @@ namespace impl
         return NODE_TYPE_TEXT ;
     }
 
+#if __CYGWIN__
+    void normalize_eol(std::string& str)
+    {
+        std::string str2 = "";
+        for(int i=0; i<str.size(); i++)
+        {
+            if(str[i] == '\n')
+            {
+                str2 += "\r\n";
+            }
+            else if(str[i] != '\r')
+            {
+                str2 += str[i];
+            }
+        }
+        str = str2;
+    }
+#endif
+
     void NodeText::gettext( std::ostream &stream, data_map & )
     {
-        stream << m_text ;
+        std::string str;
+        if (s_removeNewLine && m_text[0] == '\n')
+        {
+            if (m_text.size() > 1)
+            {
+                str = m_text.substr(1, m_text.size()-1);
+            }
+        }
+        else
+        {
+            str = m_text;
+        }
+        s_removeNewLine = false;
+
+#if __CYGWIN__
+        normalize_eol(str);
+#endif
+
+        stream << str;
     }
 
     // NodeVar
@@ -1099,7 +1431,13 @@ namespace impl
             TokenIterator it(m_expr);
             ExprParser expr(it, data);
             data_ptr result = expr.parse_expr();
-            stream << result->getvalue() ;
+            std::string str = result->getvalue();
+
+#if __CYGWIN__
+            normalize_eol(str);
+#endif
+
+            stream << str;
         }
         catch (TemplateException e)
         {
@@ -1154,9 +1492,10 @@ namespace impl
                 loop["index0"] = make_data(i) ;
                 loop["first"] = make_data(i == 0);
                 loop["last"] = make_data(i == items.size() - 1);
-                loop["even"] = make_data(i % 2 == 1);
-                loop["odd"] = make_data(i % 2 == 0);
+                loop["even"] = make_data((i+1) % 2 == 0);
+                loop["odd"] = make_data((i+1) % 2 == 1);
                 loop["count"] = make_data(items.size());
+                loop["addNewLineIfNotLast"] = (i != items.size() - 1) ? "\n" : "";
                 data["loop"] = make_data(loop);
                 data[m_val] = items[i] ;
                 for(size_t j = 0 ; j < m_children.size() ; ++j)
@@ -1169,7 +1508,7 @@ namespace impl
                 data["loop"] = saved_loop;
             }
         }
-        catch (data_map::key_error & e)
+        catch (data_map::key_error &)
         {
             // ignore exception - the for loop key variable doesn't exist, so just
             // don't execute the for loop at all

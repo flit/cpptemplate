@@ -34,6 +34,7 @@
 
 #include <utility>
 #include <exception>
+#include <cstdint>
 
 using namespace boost::unit_test;
 using namespace std ;
@@ -228,6 +229,75 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
 
         BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
     }
+    // DataInt
+    BOOST_AUTO_TEST_CASE(test_DataInt_0)
+    {
+        DataInt * i = new DataInt(0);
+
+        BOOST_CHECK_EQUAL( i->getint(), 0 ) ;
+        BOOST_CHECK_EQUAL( i->getvalue(), "0" ) ;
+        BOOST_CHECK( i->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_pos)
+    {
+        DataInt * i = new DataInt(10);
+
+        BOOST_CHECK_EQUAL( i->getint(), 10 ) ;
+        BOOST_CHECK_EQUAL( i->getvalue(), "10" ) ;
+        BOOST_CHECK( !i->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_neg)
+    {
+        DataInt * i = new DataInt(-10);
+
+        BOOST_CHECK_EQUAL( i->getint(), -10 ) ;
+        BOOST_CHECK_EQUAL( i->getvalue(), "-10" ) ;
+        BOOST_CHECK( !i->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_unsigned)
+    {
+        DataInt * i = new DataInt(10U);
+
+        BOOST_CHECK_EQUAL( i->getint(), 10 ) ;
+        BOOST_CHECK_EQUAL( i->getvalue(), "10" ) ;
+        BOOST_CHECK( !i->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_max_signed)
+    {
+        DataInt * i = new DataInt(INT32_MAX);
+
+        BOOST_CHECK_EQUAL( i->getint(), INT32_MAX ) ;
+        BOOST_CHECK_EQUAL( i->getvalue(), "2147483647" ) ;
+        BOOST_CHECK( !i->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_max_unsigned)
+    {
+        DataInt * i = new DataInt(UINT32_MAX);
+
+        BOOST_CHECK_EQUAL( i->getint(), -1 ) ;
+        BOOST_CHECK_EQUAL( i->getvalue(), "-1" ) ;
+        BOOST_CHECK( !i->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_wrapped)
+    {
+        data_ptr data(new DataInt(10));
+
+        BOOST_CHECK_EQUAL( data->getint(), 10 ) ;
+        BOOST_CHECK_EQUAL( data->getvalue(), "10" ) ;
+        BOOST_CHECK( !data->empty() ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_getitem_throws)
+    {
+        data_ptr data(new DataInt(10)) ;
+
+        BOOST_CHECK_THROW( data->getmap(), TemplateException ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_DataInt_not_template)
+    {
+        data_ptr data(new DataInt(10)) ;
+
+        BOOST_CHECK( !data.is_template() ) ;
+    }
     // DataTemplate
     BOOST_AUTO_TEST_CASE(test_DataTemplate_empty)
     {
@@ -235,6 +305,11 @@ BOOST_AUTO_TEST_SUITE( TestCppData )
         BOOST_CHECK( !t.empty() );  // templates are always non-empty
         BOOST_CHECK_EQUAL( t.getvalue(), "" );
         BOOST_CHECK_EQUAL( t.params().size(), 0u );
+    }
+    BOOST_AUTO_TEST_CASE(test_DataTemplate_is_template)
+    {
+        data_ptr d(new DataTemplate(""));
+        BOOST_CHECK( d.is_template() );
     }
 BOOST_AUTO_TEST_SUITE_END()
 
@@ -313,6 +388,20 @@ BOOST_AUTO_TEST_SUITE( TestCppStmtTokenizer )
         BOOST_CHECK_EQUAL( t[0].get_type(), TRUE_TOKEN);
         BOOST_CHECK_EQUAL( t[1].get_type(), FALSE_TOKEN);
     }
+    BOOST_AUTO_TEST_CASE(test_int_lit)
+    {
+        token_vector t = tokenize_statement("123");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), INT_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "123");
+    }
+    BOOST_AUTO_TEST_CASE(test_int_lit_hex)
+    {
+        token_vector t = tokenize_statement("0x123");
+        BOOST_CHECK_EQUAL( t.size(), 1u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), INT_LITERAL_TOKEN);
+        BOOST_CHECK_EQUAL( t[0].get_value(), "0x123");
+    }
     BOOST_AUTO_TEST_CASE(test_op)
     {
         token_vector t = tokenize_statement("== != && || and or ! not ( ) ,");
@@ -342,6 +431,42 @@ BOOST_AUTO_TEST_SUITE( TestCppStmtTokenizer )
         BOOST_CHECK_EQUAL( t[8].get_type(), OPEN_PAREN_TOKEN);
         BOOST_CHECK_EQUAL( t[9].get_type(), CLOSE_PAREN_TOKEN);
         BOOST_CHECK_EQUAL( t[10].get_type(), COMMA_TOKEN);
+    }
+    BOOST_AUTO_TEST_CASE(test_op2)
+    {
+        token_vector t = tokenize_statement("+ - * / % &");
+        BOOST_CHECK_EQUAL( t.size(), 6u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), PLUS_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), MINUS_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), TIMES_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), DIVIDE_TOKEN);
+        BOOST_CHECK_EQUAL( t[4].get_type(), MOD_TOKEN);
+        BOOST_CHECK_EQUAL( t[5].get_type(), CONCAT_TOKEN);
+
+        t = tokenize_statement("+-*/%&");
+        BOOST_CHECK_EQUAL( t.size(), 6u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), PLUS_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), MINUS_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), TIMES_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), DIVIDE_TOKEN);
+        BOOST_CHECK_EQUAL( t[4].get_type(), MOD_TOKEN);
+        BOOST_CHECK_EQUAL( t[5].get_type(), CONCAT_TOKEN);
+    }
+    BOOST_AUTO_TEST_CASE(test_op3)
+    {
+        token_vector t = tokenize_statement("> >= < <=");
+        BOOST_CHECK_EQUAL( t.size(), 4u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), GT_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), GE_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), LT_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), LE_TOKEN);
+
+        t = tokenize_statement(">>=<<=");
+        BOOST_CHECK_EQUAL( t.size(), 4u );
+        BOOST_CHECK_EQUAL( t[0].get_type(), GT_TOKEN);
+        BOOST_CHECK_EQUAL( t[1].get_type(), GE_TOKEN);
+        BOOST_CHECK_EQUAL( t[2].get_type(), LT_TOKEN);
+        BOOST_CHECK_EQUAL( t[3].get_type(), LE_TOKEN);
     }
     BOOST_AUTO_TEST_CASE(test_kwd)
     {
@@ -721,6 +846,24 @@ BOOST_AUTO_TEST_SUITE( TestCppExprParser )
         data_ptr r = p.parse_expr();
         BOOST_CHECK_EQUAL( r->getvalue(), "hi");
     }
+    BOOST_AUTO_TEST_CASE(test_int_lit)
+    {
+        token_vector v = tokenize_statement("123");
+        TokenIterator t(v);
+        data_map d;
+        ExprParser p(t, d);
+        data_ptr r = p.parse_expr();
+        BOOST_CHECK_EQUAL( r->getint(), 123);
+    }
+    BOOST_AUTO_TEST_CASE(test_int_lit_hex)
+    {
+        token_vector v = tokenize_statement("0x1000");
+        TokenIterator t(v);
+        data_map d;
+        ExprParser p(t, d);
+        data_ptr r = p.parse_expr();
+        BOOST_CHECK_EQUAL( r->getint(), 4096);
+    }
     BOOST_AUTO_TEST_CASE(test_and)
     {
         token_vector v = tokenize_statement("a and b");
@@ -821,6 +964,221 @@ BOOST_AUTO_TEST_SUITE( TestCppExprParser )
         t.reset();
         BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
     }
+    BOOST_AUTO_TEST_CASE(test_gt)
+    {
+        token_vector v = tokenize_statement("a > b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["b"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+    }
+    BOOST_AUTO_TEST_CASE(test_gt_txt)
+    {
+        token_vector v = tokenize_statement("a > b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "apple";
+        d["b"] = "bear";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["b"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+    }
+    BOOST_AUTO_TEST_CASE(test_ge)
+    {
+        token_vector v = tokenize_statement("a >= b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["b"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_ge_txt)
+    {
+        token_vector v = tokenize_statement("a >= b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "apple";
+        d["b"] = "bear";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["b"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_lt)
+    {
+        token_vector v = tokenize_statement("a < b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["b"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+    }
+    BOOST_AUTO_TEST_CASE(test_lt_txt)
+    {
+        token_vector v = tokenize_statement("a < b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "apple";
+        d["b"] = "bear";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["b"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+    }
+    BOOST_AUTO_TEST_CASE(test_le)
+    {
+        token_vector v = tokenize_statement("a <= b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["a"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["b"] = 50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_le_txt)
+    {
+        token_vector v = tokenize_statement("a <= b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "apple";
+        d["b"] = "bear";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+        d["a"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "false");
+        d["b"] = "monkey";
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_str_cat)
+    {
+        token_vector v = tokenize_statement("a & b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = "hello";
+        d["b"] = "world";
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "helloworld");
+        d["a"] = 50;
+        d["b"] = true;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "50true");
+    }
+    BOOST_AUTO_TEST_CASE(test_str_cat_lit)
+    {
+        token_vector v = tokenize_statement("\"a\" & \"b\"");
+        TokenIterator t(v);
+        data_map d;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "ab");
+    }
+    BOOST_AUTO_TEST_CASE(test_add)
+    {
+        token_vector v = tokenize_statement("a + b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 300);
+        d["a"] = -50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 50);
+    }
+    BOOST_AUTO_TEST_CASE(test_sub)
+    {
+        token_vector v = tokenize_statement("a - b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 100);
+        d["a"] = -50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), -150);
+    }
+    BOOST_AUTO_TEST_CASE(test_mul)
+    {
+        token_vector v = tokenize_statement("a * b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 20000);
+        d["a"] = -50;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), -5000);
+    }
+    BOOST_AUTO_TEST_CASE(test_div)
+    {
+        token_vector v = tokenize_statement("a / b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 200;
+        d["b"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 2);
+        d["b"] = -5;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), -40);
+    }
+    BOOST_AUTO_TEST_CASE(test_mod)
+    {
+        token_vector v = tokenize_statement("a % b");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 12;
+        d["b"] = 10;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 2);
+        d["a"] = 10;
+        t.reset();
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), 0);
+    }
     BOOST_AUTO_TEST_CASE(test_not)
     {
         token_vector v = tokenize_statement("not a");
@@ -832,6 +1190,23 @@ BOOST_AUTO_TEST_SUITE( TestCppExprParser )
         d["a"] = false;
         t.reset();
         BOOST_CHECK_EQUAL( p.parse_expr()->getvalue(), "true");
+    }
+    BOOST_AUTO_TEST_CASE(test_unary_minus)
+    {
+        token_vector v = tokenize_statement("-12");
+        TokenIterator t(v);
+        data_map d;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), -12);
+    }
+    BOOST_AUTO_TEST_CASE(test_unary_minus_var)
+    {
+        token_vector v = tokenize_statement("-a");
+        TokenIterator t(v);
+        data_map d;
+        d["a"] = 100;
+        ExprParser p(t, d);
+        BOOST_CHECK_EQUAL( p.parse_expr()->getint(), -100);
     }
     BOOST_AUTO_TEST_CASE(test_parens)
     {
@@ -1281,6 +1656,26 @@ BOOST_AUTO_TEST_SUITE(TestCppTemplateFor)
         data["items"] = make_data(items) ;
         string actual = parse(text, data) ;
         string expected = "01" ;
+        BOOST_CHECK_EQUAL( expected, actual ) ;
+    }
+    BOOST_AUTO_TEST_CASE(test_for_loop_vars)
+    {
+        string text = "{% for item in items %}\n"
+                      "index={$loop.index}; index0={$loop.index0}; first={$loop.first}; last={$loop.last}; "
+                          "even={$loop.even}; odd={$loop.odd}; count={$loop.count}; "
+                          "addNewLineIfNotLast={$loop.addNewLineIfNotLast}"
+                      "{% endfor %}" ;
+        data_map data ;
+        data_list items ;
+        items.push_back(make_data(1)) ;
+        items.push_back(make_data(2)) ;
+        items.push_back(make_data(3)) ;
+        data["items"] = make_data(items) ;
+        string actual = parse(text, data) ;
+        string expected =
+"index=1; index0=0; first=true; last=false; even=false; odd=true; count=3; addNewLineIfNotLast=\n"
+"index=2; index0=1; first=false; last=false; even=true; odd=false; count=3; addNewLineIfNotLast=\n"
+"index=3; index0=2; first=false; last=true; even=false; odd=true; count=3; addNewLineIfNotLast=";
         BOOST_CHECK_EQUAL( expected, actual ) ;
     }
     BOOST_AUTO_TEST_CASE(test_nested_for)

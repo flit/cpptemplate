@@ -24,9 +24,13 @@ TARGET = cpptempl_test
 
 OBJECTS = cpptempl.o cpptempl_test.o
 
-LIBRARIES = -lc -lstdc++ -lm -lboost_unit_test_framework-mt
+BOOST_ROOT = /usr/local/opt/boost
 
-CXXFLAGS = -std=gnu++11 -Werror -g3 -O0 -MMD -MP
+LIBRARIES = -lc -lstdc++ -lm -lboost_unit_test_framework-mt -L$(BOOST_ROOT)/lib
+
+INCLUDES = -I$(BOOST_ROOT)/include
+
+CXXFLAGS = -std=gnu++11 -Werror -g3 -O0 -MMD -MP $(INCLUDES)
 
 .PHONY: all
 all: cpptempl_test
