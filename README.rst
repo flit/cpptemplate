@@ -2,36 +2,10 @@ cpptempl 2.0
 =================
 This is a template engine for C++.
 
-Copyright
-==================
-| Copyright (c) 2010-2014 Ryan Ginstrom
-| Copyright (c) 2014 Martinho Fernandes
-| Copyright (c) 2014-2016 Freescale Semiconductor, Inc.
-
 | Original author: Ryan Ginstrom
 | Additions by Martinho Fernandes
 | Extensive modifications by Chris Reed
-
-License
-==================
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
+| Additional changes by Dušan Červenka
 
 Requirements
 ==================
@@ -81,7 +55,8 @@ Syntax
 :Variables:
     ``{$variable_name}``
 :Loops:
-    ``{% for person in people %}Name: {$person.name}{% endfor %}``
+    ``{% for person in people %}Name: {$person.name}{% endfor %}``<br/>
+    ``{% for person in people if person.age > 30 %}Name: {$person.name}{% endfor %}``
 :If:
     ``{% if foo %}gorilla{% elif bar %}bonobo{% else %}orangutan{% endif %}``
 :Def:
@@ -95,7 +70,7 @@ There are three types of statements: variable substitutions, control statements,
 comments.
 
 For loops iterate over the ``data_list`` selected by the key path named after the "in"
-keyword.
+keyword. An optional Boolean filter expression can be added after an "if" keyword.
 
 If statements conditionally execute one section or another of the template based on
 the value of one or more Boolean expressions. As one would expect, if statements may
@@ -124,8 +99,8 @@ but ``{$var . name}`` is invalid.
 
 Expressions
 -----------
-If statements and variable substitution blocks accept arbitrary expressions. This is
-currently most useful for if statements, as the expressions are only Boolean.
+If statements, variable substitution blocks, for loop filters, and set statements accept
+arbitrary expressions.
 
 Operators for expressions are shown in the following table, listed in order of highest
 to lowest precedence. x and y are subexpressions, and p is a predicate subexpression.
@@ -155,6 +130,10 @@ to lowest precedence. x and y are subexpressions, and p is a predicate subexpres
 Note that the keywords "not", "and", and "or" are also supported in place of the C-style
 operators. Thus, ``not (x and y)`` is completely equivalent to ``!(x && y)``.
 
+In all cases where an expression produces a Boolean result, an empty string is considered
+to be false while a non-empty string is true. Similarly, an integer value of 0 is false and
+a non-zero integer is true.
+
 The Boolean OR operator (``||`` or ``or``) does not produces a Boolean result. Instead, it
 returns the value of its non-empty, or true, operand. If both operands are non-empty, then
 it returns the left operand's value. Thus, ``false or 'lizard'`` returns ``'lizard'``.
@@ -166,18 +145,18 @@ numerically.
 The binary arithmetic operators will convert their operands to a signed integer, if not
 one already, before performing the operation. The result is always an integer.
 
-There are also a few pseudo-functions that may be used in expressions. More may be added
-later.
+There are also a few built-in functions that may be used in expressions.
 
-===============  ===========================================================
+======================  ===========================================================
 ``count(x)``            Returns the number of items in the specified list.
 ``defined(x)``          Returns true if the key path specifies an existing key.
 ``empty(x)``            True if the variable path x is the empty string.
 ``int(x)``              Coerce to integer value
 ``str(x)``              Coerce to string value
 ``addIndent(x,y)``      If y is not empty, it will add x-spaces on begin of y.
-``removeNewLine(x)``    Will remove next newline character, when x is empty string.
-===============  ===========================================================
+``upper(x)``            Convert the string to uppercase.
+``lower(x)``            Convert the string to lowercase.
+======================  ===========================================================
 
 Supported value types in expressions:
 
@@ -218,7 +197,7 @@ Inside a for statement block, a "loop" map variable is defined with these keys:
 ``even``                    True on all even iterations, starting with the second
 ``odd``                     True on all odd iterations, starting with the first
 ``count``                   Total number of elements in the list
-''addNewLineIfNotLast''     This will add new line when it is not last iteration through the loop.
+``addNewLineIfNotLast``     This will add new line when it is not last iteration through the loop.
 ==========================  =======================================================
 
 The "loop" variable remains available after the for statement completes. It will also be
@@ -237,6 +216,27 @@ another key path::
             {% if person_loop.last %}...{% endif %}
         {% endfor %}
     {% endfor %}
+
+For loop filtering
+------------------
+
+A for loop statement may optionally contain an "if" keyword followed by a Boolean expression.
+The expression will be evaluated for each list element. The for loop will iterate over only
+those list elements for which the expression evaluated to true (non-empty).
+
+Both the for loop iterator variable and "loop" variable are available in the filter expression.
+Inside the body of the for loop, the "loop" variable will have the correct values for iterating
+over the filtered list.
+
+For instance::
+
+    {% for x in mylist if loop.odd %}
+        {$loop.index}: {$x.value}
+    {% endfor %}
+
+In this example, if mylist has 10 elements, then the "loop" variable in the filter expression
+will have a "count" key of 10. Filtering will reduce the list to 5 elements (the odd elements).
+Inside the for loop body, the "loop" variable will have a "count" key of 5.
 
 Newline control
 ---------------
@@ -257,6 +257,12 @@ You may combine an empty or comment-only statement with the newline elider to fo
 "newline-eater" statement. It looks like ``{%>%}``, or ``{% -- comment >%}`` with a
 comment. This can be very useful is situations where you want to break a complex sequence
 of statements into multiple lines for better maintainability.
+
+Variable substitution statements also support a special newline control option enabled by
+placing a ">" character after the "$", like ``{$> ... }``. If the substitution expression
+evaluated to an empty string, then the next newline that would normally be output will be
+removed. This works even when there are multiple other statements between the variable
+substitution statement and the next newline.
 
 Comments
 --------
@@ -393,3 +399,30 @@ Known Issues
   for CRLF line endings.
 - The only way to output the variable substitution or control statement open block
   sequences is to substitute a string literal with that value, i.e. ``{$"{%"}``.
+
+Copyright
+==================
+| Copyright (c) 2010-2014 Ryan Ginstrom
+| Copyright (c) 2014 Martinho Fernandes
+| Copyright (c) 2014-2016 Freescale Semiconductor, Inc.
+
+License
+==================
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
